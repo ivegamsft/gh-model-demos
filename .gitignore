@@ -1,0 +1,36 @@
+# Local secrets. Commit only sanitized templates.
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+.npmrc
+.netrc
+_netrc
+.git-credentials
+*.key
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Authentication caches and agent session state, not shared .github assets.
+.ssh/
+.aws/
+.azure/
+.config/gh/
+.copilot/
+.claude/.credentials.json
+.claude/settings.local.json
+.auth/
+
+# Harness evidence can contain prompts, model outputs, and sensitive tool results.
+results/
+node_modules/
+.build-packages/
+
+# Local previews and Python bytecode.
+.playwright-mcp/
+__pycache__/
+*.py[cod]
