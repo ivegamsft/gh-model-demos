@@ -15,7 +15,7 @@
     "web": ["web_search", "web_fetch"],
     "default": null
   },
-  "maxPlannedAiCredits": 20,
+  "maxPlannedAiCredits": 60,
   "trials": 1,
   "cpus": 2,
   "memory": "2g",

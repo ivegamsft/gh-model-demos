@@ -1,8 +1,9 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { cp, mkdir, readFile, writeFile, access } from 'node:fs/promises';
+import { cp, mkdir, readFile, rename, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cliArgs, expandPrompt, finalOutput, grade, summarizeEvents, validateCatalog } from './harness-lib.mjs';
 
 const evidence = '/evidence';
@@ -11,11 +12,13 @@ const cliRoot = '/usr/local/lib/node_modules/@github/copilot';
 
 function redact(text) {
   return text.replace(/\b(?:gh[oopsur]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]+)\b/g, '[REDACTED]')
-    .replace(/(authorization["':\s]+bearer\s+)\S+/gi, '$1[REDACTED]');
+    .replace(/(authorization["':\s]+bearer\s+)[^\s"\\,}]+/gi, '$1[REDACTED]');
 }
 
 async function json(path, value) {
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+  const temporary = `${path}.${process.pid}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`);
+  await rename(temporary, path);
 }
 
 async function status(value) {
@@ -24,13 +27,14 @@ async function status(value) {
   console.log(JSON.stringify(record));
 }
 
-export function command(file, args, { cwd = workspace, timeoutMs = 60000, onLine } = {}) {
+export function command(file, args, { cwd = workspace, timeoutMs = 60000, onLine, input } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(file, args, { cwd, env: process.env, detached: true });
     let stdout = '';
     let stderr = '';
     let pending = '';
     let timedOut = false;
+    let stdinError = null;
     const stop = () => {
       try { process.kill(-child.pid, 'SIGKILL'); }
       catch (error) { if (error.code !== 'ESRCH') reject(error); }
@@ -45,11 +49,13 @@ export function command(file, args, { cwd = workspace, timeoutMs = 60000, onLine
       for (const line of lines) onLine?.(line);
     });
     child.stderr.on('data', chunk => { stderr += redact(chunk.toString()); });
+    child.stdin.on('error', error => { stdinError = error.message; });
+    child.stdin.end(input);
     child.on('error', error => { clearTimeout(timer); reject(error); });
     child.on('close', code => {
       clearTimeout(timer);
       if (pending) onLine?.(pending);
-      resolve({ code, stdout, stderr, timedOut });
+      resolve({ code, stdout, stderr, timedOut, stdinError });
     });
   });
 }
@@ -76,7 +82,7 @@ async function prepareAuth() {
 
 async function catalog() {
   await checked(process.execPath, [
-    '/opt/harness/dump-models.mjs', join(cliRoot, 'copilot-sdk/index.js'),
+    '/opt/harness/dump-models.mjs', fileURLToPath(import.meta.resolve('@github/copilot-sdk')),
     join(cliRoot, 'npm-loader.js'), evidence,
   ]);
   const inventory = JSON.parse(await readFile(join(evidence, 'model-inventory.json'), 'utf8'));
@@ -144,7 +150,8 @@ async function main() {
         const remaining = deadline - Date.now();
         if (remaining <= 0) { capHit = 'wall-clock'; throw new Error('Trial wall-clock cap exceeded.'); }
         const streamed = [];
-        const result = await command('copilot', cliArgs(phase, plan.caps, sessionId, input), {
+        const result = await command('copilot', cliArgs(phase, plan.caps, sessionId), {
+          input,
           timeoutMs: remaining,
           onLine(line) {
             if (!line.trim()) return;
@@ -152,7 +159,7 @@ async function main() {
               const parsed = JSON.parse(line);
               const event = parsed.event ?? parsed;
               streamed.push(event);
-              record(event);
+              record({ ...event, harnessSessionId: sessionId });
             } catch (error) {
               if (!(error instanceof SyntaxError)) throw error;
               // Raw non-JSON lines are retained in stdout, not interpreted as successful events.
@@ -162,7 +169,7 @@ async function main() {
         await writeFile(join(evidence, `${prefix}-stdout.log`), result.stdout);
         await writeFile(join(evidence, `${prefix}-stderr.log`), result.stderr);
         const stored = await persistedEvents(sessionId);
-        stored.forEach(record);
+        stored.forEach(event => record({ ...event, harnessSessionId: sessionId }));
         const newStored = stored.slice(previousStoredCount);
         previousStoredCount = stored.length;
         lastOutput = finalOutput(streamed) ?? finalOutput(newStored) ?? '';
@@ -176,6 +183,7 @@ async function main() {
           throw new Error('Trial wall-clock cap exceeded.');
         }
         if (result.code !== 0) throw new Error(`Copilot exited with status ${result.code}. See ${prefix}-stderr.log.`);
+        if (result.stdinError) throw new Error(`Could not deliver complete prompt on stdin: ${result.stdinError}`);
         const errors = [...streamed, ...newStored].filter(event => event.type === 'session.error');
         if (errors.length) throw new Error(`Copilot session error: ${redact(JSON.stringify(errors.at(-1).data))}`);
         if (!lastOutput) throw new Error('No final assistant response found; inspect raw stdout and events.');
@@ -207,7 +215,6 @@ async function main() {
       status: state, error: failure, capHit, elapsedMs: Date.now() - began,
       acceptance: grade(plan.pattern, lastOutput, plan.acceptance),
       metrics: summarizeEvents(events), turns: turns.map(({ output, acceptance, ...turn }) => turn),
-      telemetryComplete: false,
     };
     await json(join(evidence, 'result.json'), result);
     await status({ state, variant: plan.variant, error: failure });

@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
-import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { access, cp, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPlan, comparison, hash, inside, positive } from './harness-lib.mjs';
@@ -8,12 +8,29 @@ import { buildPlan, comparison, hash, inside, positive } from './harness-lib.mjs
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = dirname(directory);
 const resultsRoot = join(directory, 'results');
+const activeContainers = new Set();
+const activeClients = new Set();
+let interrupted = false;
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    if (interrupted) return;
+    interrupted = true;
+    console.error(`${signal}: stopping this run's containers and collecting available evidence.`);
+    for (const child of activeClients) child.kill();
+    for (const name of activeContainers) {
+      exec(['stop', '--time', '2', name]).then(result => {
+        if (result.code !== 0) console.error(`Could not stop ${name}: ${result.stderr}`);
+      }).catch(error => console.error(error.message));
+    }
+  });
+}
 
 function options(args) {
   const parsed = {};
   for (let index = 0; index < args.length; index++) {
     const key = args[index];
-    if (!['--pattern', '--config', '--trials', '--budget', '--variant', '--run', '--dry-run', '--watch', '--review'].includes(key)) {
+    if (!['--pattern', '--config', '--trials', '--budget', '--variant', '--run', '--dry-run', '--watch'].includes(key)) {
       throw new Error(`Unknown argument: ${key}`);
     }
     if (['--dry-run', '--watch'].includes(key)) parsed[key.slice(2)] = true;
@@ -28,6 +45,7 @@ function options(args) {
 function exec(args, { timeoutMs = 60000, inherit = false, onLine } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn('docker', args, { stdio: inherit ? 'inherit' : ['ignore', 'pipe', 'pipe'] });
+    activeClients.add(child);
     let stdout = '';
     let stderr = '';
     let pending = '';
@@ -42,9 +60,10 @@ function exec(args, { timeoutMs = 60000, inherit = false, onLine } = {}) {
       lines.forEach(line => onLine?.(line));
     });
     child.stderr?.on('data', chunk => { stderr += chunk; });
-    child.on('error', error => { clearTimeout(timer); reject(error); });
+    child.on('error', error => { clearTimeout(timer); activeClients.delete(child); reject(error); });
     child.on('close', code => {
       clearTimeout(timer);
+      activeClients.delete(child);
       if (pending) onLine?.(pending);
       resolve({ code, stdout, stderr, timedOut });
     });
@@ -60,7 +79,71 @@ async function docker(args, opts) {
 }
 
 async function json(path, value) {
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+  const temporary = `${path}.${process.pid}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`);
+  await rename(temporary, path);
+}
+
+async function prepareBuild() {
+  const architecture = await docker(['info', '--format', '{{.Architecture}}']);
+  const arch = { x86_64: 'amd64', aarch64: 'arm64', amd64: 'amd64', arm64: 'arm64' }[architecture];
+  if (!arch) throw new Error(`Unsupported Docker architecture: ${architecture}`);
+  const candidates = [
+    process.env.npm_execpath,
+    join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    resolve(dirname(process.execPath), '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  ].filter(Boolean);
+  let npmPath;
+  for (const candidate of candidates) {
+    try { await access(candidate); npmPath = candidate; break; }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  if (!npmPath) throw new Error('Cannot locate npm-cli.js. Run this command via npm run build in tests.');
+  const destination = join(directory, '.build-packages', arch, 'runtime');
+  await mkdir(destination, { recursive: true });
+  // Only public package tarballs enter the build context, never host npm credentials.
+  const lock = JSON.parse(await readFile(join(directory, 'package-lock.json'), 'utf8'));
+  const packages = ['@github/copilot@1.0.98',
+    `@github/copilot-linux-${arch === 'amd64' ? 'x64' : 'arm64'}@1.0.98`, 'detect-libc@2.1.2'];
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [npmPath, 'pack', ...packages, '--pack-destination', destination, '--ignore-scripts', '--loglevel', 'error'],
+      { stdio: 'inherit' });
+    const timer = setTimeout(() => child.kill(), 300000);
+    child.on('error', error => { clearTimeout(timer); reject(error); });
+    child.on('exit', code => {
+      clearTimeout(timer);
+      if (code === 0) resolve();
+      else reject(new Error(`Preparing public build packages failed (${code}).`));
+    });
+  });
+  const cpu = arch === 'amd64' ? 'x64' : 'arm64';
+  for (const [name, metadata] of Object.entries(lock.packages)) {
+    if (!name.startsWith('node_modules/') ||
+        (metadata.os && !metadata.os.includes('linux')) ||
+        (metadata.cpu && !metadata.cpu.includes(cpu))) continue;
+    const url = new URL(metadata.resolved);
+    if (url.protocol !== 'https:' || url.username || url.password) throw new Error(`Invalid public package URL: ${name}`);
+    const archive = join(destination, `locked-${hash(name).slice(0, 16)}.tgz`);
+    let bytes;
+    try { bytes = await readFile(archive); }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      const response = await fetch(url, { signal: AbortSignal.timeout(120000) });
+      if (!response.ok) throw new Error(`Package download failed: ${name} (${response.status})`);
+      bytes = Buffer.from(await response.arrayBuffer());
+    }
+    const integrities = metadata.integrity?.split(/\s+/) ?? [];
+    const valid = integrities.some(integrity => {
+      const [algorithm, expected] = integrity.split('-');
+      if (!['sha1', 'sha256', 'sha384', 'sha512'].includes(algorithm)) return false;
+      return createHash(algorithm).update(bytes).digest('base64') === expected;
+    });
+    if (!valid) throw new Error(`Downloaded package failed locked integrity verification: ${name}`);
+    await writeFile(archive, bytes);
+    // Normalize verified legacy SHA-1 locks for npm's offline content-addressed cache.
+    metadata.integrity = `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
+  }
+  await json(join(destination, 'package-lock.json'), lock);
 }
 
 async function loadConfig(opts) {
@@ -70,7 +153,7 @@ async function loadConfig(opts) {
   positive(config.cpus, 'cpus');
   positive(config.pidsLimit, 'pidsLimit', true);
   if (typeof config.image !== 'string' || !config.image || config.image.startsWith('-')) throw new Error('Invalid image name.');
-  if (!/^\d+[bkmg]$/i.test(config.memory)) throw new Error('memory must be an explicit Docker memory limit, e.g. 2g.');
+  if (!/^[1-9]\d*[bkmg]$/i.test(config.memory)) throw new Error('memory must be an explicit positive Docker memory limit, e.g. 2g.');
   for (const variant of ['good', 'bad']) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]+$/.test(config.authVolumes?.[variant] ?? '')) throw new Error(`Invalid ${variant} auth volume.`);
   }
@@ -101,6 +184,7 @@ async function preflight(config) {
       await docker(['volume', 'inspect', config.authVolumes[variant]]);
       await docker([...containerArgs(config, name, variant), 'node', '/opt/harness/worker.mjs', '--preflight']);
       created = true;
+      activeContainers.add(name);
       const result = await exec(['start', '--attach', name], { timeoutMs: 120000 });
       const inspection = JSON.parse(await docker(['inspect', name]))[0];
       checks.variants[variant] = {
@@ -111,6 +195,7 @@ async function preflight(config) {
       checks.variants[variant] = { passed: false, error: error.message };
     } finally {
       if (created) await docker(['rm', '--force', name]);
+      activeContainers.delete(name);
     }
   }
   const path = join(resultsRoot, 'container-preflight.json');
@@ -135,6 +220,7 @@ async function executePair(config, plan, runPath, trial, repetition, manifest, w
   try {
     // Both containers are prepared before either model is invoked.
     for (const variant of order) {
+      if (interrupted) throw new Error('Experiment interrupted.');
       const name = `model-${variant}-${randomUUID().slice(0, 12)}`;
       const path = join(runPath, `trial-${trial}`, `repetition-${repetition}`, variant);
       await mkdir(path, { recursive: true });
@@ -143,6 +229,7 @@ async function executePair(config, plan, runPath, trial, repetition, manifest, w
       const jobPath = join(path, 'plan.json');
       await json(jobPath, job);
       await docker(containerArgs(config, name, variant));
+      activeContainers.add(name);
       const container = { name, variant, path, job, collected: false };
       containers.push(container);
       await docker(['cp', jobPath, `${name}:/job/plan.json`]);
@@ -150,6 +237,7 @@ async function executePair(config, plan, runPath, trial, repetition, manifest, w
       await docker(['cp', snapshot, `${name}:/job/snapshot`]);
     }
     for (const container of containers) {
+      if (interrupted) throw new Error('Experiment interrupted.');
       const { name, path, variant, job } = container;
       await writeStatus({ state: 'running', trial, repetition, variant, container: name });
       manifest.executionOrder.push({ trial, repetition, variant, container: name, startedAt: new Date().toISOString() });
@@ -191,6 +279,7 @@ async function executePair(config, plan, runPath, trial, repetition, manifest, w
       await json(join(path, 'result.json'), result);
       if (result.status !== 'completed') failed = true;
       await writeStatus({ state: 'collecting', trial, repetition, variant, outcome: result.status });
+      if (interrupted) throw new Error('Experiment interrupted.');
     }
   } finally {
     const cleanupErrors = [];
@@ -200,6 +289,7 @@ async function executePair(config, plan, runPath, trial, repetition, manifest, w
       } catch (error) { cleanupErrors.push(error.message); }
       try { await docker(['rm', '--force', container.name]); }
       catch (error) { cleanupErrors.push(error.message); }
+      activeContainers.delete(container.name);
     }
     if (cleanupErrors.length) {
       await json(join(runPath, 'cleanup-errors.json'), cleanupErrors);
@@ -294,7 +384,9 @@ async function run(config, opts) {
     manifest.harnessHashes = Object.fromEntries(await Promise.all(
       ['harness.mjs', 'harness-lib.mjs', 'worker.mjs', 'Dockerfile', 'package-lock.json'].map(async name =>
         [name, hash(await readFile(join(directory, name)))])));
-    await preflight(config);
+    const executionConfig = { ...config, image: image.Id };
+    await preflight(executionConfig);
+    if (interrupted) throw new Error('Experiment interrupted.');
     const snapshot = join(runPath, 'snapshot');
     await mkdir(snapshot, { recursive: true });
     for (const [name, expectedHash] of Object.entries(plan.variants.good.fixtures)) {
@@ -306,7 +398,7 @@ async function run(config, opts) {
     await json(join(runPath, 'manifest.json'), manifest);
     for (let trial = 1; trial <= config.trials; trial++) {
       for (let repetition = 1; repetition <= manifest.repetitions; repetition++) {
-        failed = await executePair(config, plan, runPath, trial, repetition, manifest, writeStatus) || failed;
+        failed = await executePair(executionConfig, plan, runPath, trial, repetition, manifest, writeStatus) || failed;
       }
     }
     await writeStatus({ state: failed ? 'failed' : 'completed' });
@@ -323,6 +415,7 @@ async function run(config, opts) {
 
 async function monitor(runPath, watch) {
   do {
+    if (interrupted) return;
     const record = JSON.parse(await readFile(join(runPath, 'status.json'), 'utf8'));
     console.log(JSON.stringify(record, null, 2));
     if (record.state === 'running' && record.container) {
@@ -348,6 +441,7 @@ async function main() {
   }
   const config = await loadConfig(opts);
   if (action === 'build') {
+    await prepareBuild();
     await docker(['build', '--tag', config.image, '--file', join(directory, 'Dockerfile'), directory],
       { inherit: true, timeoutMs: 900000 });
   } else if (action === 'login') {
@@ -357,10 +451,19 @@ async function main() {
       if (!['good', 'bad'].includes(variant)) throw new Error('variant must be good or bad.');
       await docker(['volume', 'create', config.authVolumes[variant]]);
       console.log(`Authorize ${variant} in your browser. No PAT is required.`);
-      await docker(['run', '--rm', '--interactive', '--tty', '--cap-drop=ALL', '--security-opt=no-new-privileges',
-        '--mount', `type=volume,source=${config.authVolumes[variant]},target=/auth`,
-        '--env', 'COPILOT_HOME=/auth', config.image, 'copilot', 'login', '--device-code'],
-      { inherit: true, timeoutMs: 900000 });
+      const name = `model-login-${variant}-${randomUUID().slice(0, 8)}`;
+      activeContainers.add(name);
+      try {
+        await docker(['run', '--name', name, '--interactive', '--tty', '--cap-drop=ALL', '--security-opt=no-new-privileges',
+          '--mount', `type=volume,source=${config.authVolumes[variant]},target=/auth`,
+          '--env', 'COPILOT_HOME=/auth', config.image, 'copilot', 'login', '--device-code'],
+        { inherit: true, timeoutMs: 900000 });
+      } finally {
+        const cleanup = await exec(['rm', '--force', name]);
+        activeContainers.delete(name);
+        if (cleanup.code !== 0) throw new Error(`Login container cleanup failed: ${cleanup.stderr}`);
+      }
+      if (interrupted) throw new Error('Login interrupted.');
     }
   } else if (action === 'preflight') await preflight(config);
   else if (action === 'run') await run(config, opts);

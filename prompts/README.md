@@ -54,7 +54,7 @@ config:                        # harness configuration
   subagent_mechanism: ...      # optional; record subagents vs fleet
 run_safety: sandbox-only       # optional; never run outside a disposable sandbox
 caps:                          # harness-enforced safety caps; starting values, not cost predictions
-  max_ai_credits: 10
+  max_ai_credits: 30
   timeout_minutes: 5
 repetitions: 1                 # optional; >1 sends the body repeatedly (cache tests)
 phases: []                     # optional; per-session config overrides, in order
@@ -103,6 +103,7 @@ copilot -p $body `
 ```
 
 - `--max-ai-credits` is a soft session cap. Enforce `timeout_minutes` separately by stopping the process.
+- Copilot CLI 1.0.98 requires at least 30 AI credits for this flag; lower caps are rejected before inference.
 - `model_class` is abstract. Map it to concrete model IDs, or `auto`, in harness config so the library survives model changes.
 - Multi-turn and multi-session patterns need a runner that can continue sessions. Use your harness's supported mechanism instead of assuming a flag.
 - Patterns that expect subagents (research-fan-out, orchestration) may need fleet or subagent support enabled; record which mechanism was used.

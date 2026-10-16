@@ -10,7 +10,7 @@ config:
   reasoning_effort: medium
   tools: read-only
 caps:
-  max_ai_credits: 20
+  max_ai_credits: 30
   timeout_minutes: 10
 fixtures:
   - fixtures/rag/policies/

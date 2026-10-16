@@ -2,30 +2,134 @@
 
 ## Status and purpose
 
-This directory defines the planned test harness and its methodology. **The Docker
-image and controller are not implemented yet.** The model inventory script is
-implemented and can run independently; it does not send prompts or run tests.
+This directory contains a Docker-based Copilot CLI experiment harness. The host
+controller prepares isolated good/bad containers, dispatches prompts, collects
+evidence, and generates paired reports. Each variant has its own device-auth
+volume; no PAT or host credential directory is required.
 
 Measure whether the paired [prompt patterns](../prompts/README.md) and
 [agent assets](../agent-assets/README.md) improve cost, quality, and reliability.
 `good` and `bad` are experimental labels, not proven outcomes. The primary measure
 is **total cost per accepted completion**, not shortest output or lowest token count.
 
+## Quick start
+
+Requirements: Node.js 22.12+ (Node 24 inside the image), npm, and Docker Desktop
+running Linux containers. Run these commands from the repository root in PowerShell:
+
+```powershell
+npm ci --prefix .\tests
+node .\tests\harness.mjs build
+node .\tests\harness.mjs login
+node .\tests\harness.mjs preflight
+node .\tests\harness.mjs run --pattern structured-extraction --dry-run
+node .\tests\harness.mjs run --pattern structured-extraction
+```
+
+`login` runs device flow twice. Approve each code in your browser. In this minimal
+Linux image there is no system keychain: **accept the CLI's plaintext-storage
+prompt** to persist OAuth credentials in the variant's Docker volume. Browser
+approval alone is insufficient. Login requires an interactive terminal.
+
+The build pins GitHub CLI 2.89.0 and Copilot CLI 1.0.98. It downloads public npm
+tarballs on the host and installs them offline in Docker, accommodating environments
+where containers cannot reach the npm registry. TLS verification stays enabled.
+The ignored `.build-packages` directory is a reusable public-package cache, not
+credential storage. Host npm configuration and credentials never enter the image.
+Locked dependency downloads are checked against the source lock's integrity;
+legacy SHA-1 entries are normalized to SHA-512 in a generated build-only lock so
+npm can resolve the verified tarballs through its offline content cache.
+The base image uses a Node 24 tag; each experiment records the actual image ID.
+
+### Run and monitor
+
+```powershell
+# Basic paired experiment; the command prints its run ID.
+node .\tests\harness.mjs run --pattern one-shot
+
+# In a second terminal, substitute the printed ID (not an absolute path).
+node .\tests\harness.mjs monitor --run <run-id> --watch
+
+# Regenerate a report from saved evidence, without making model calls.
+node .\tests\harness.mjs report --run <run-id>
+
+# Five paired trials need a higher aggregate budget than the default.
+node .\tests\harness.mjs run --pattern structured-extraction --trials 5 --budget 300
+
+# Focused automated tests, with no model calls.
+npm test --prefix .\tests
+```
+
+Monitoring shows controller/worker state and live Docker CPU/memory statistics.
+The controller prints session/turn progress while running. Reports and raw evidence
+are saved under the ignored `results/<run-id>/` directory.
+Prompt bodies are sent on stdin, avoiding command-line argument length limits for
+large fixture expansions and keeping their text out of process argument listings.
+
+### Configuration and current coverage
+
+[config.json](config.json) maps model classes to concrete IDs, tool profiles to
+allowlists, resource limits, auth-volume names, and the experiment budget. All three
+model classes initially map to **gpt-5-mini** to hold the model constant; they are
+not genuine light/mid/strong tier assignments. Configure explicit mappings before
+testing model-tier workflows. Every command accepts `--config <path>`.
+
+- Default: one paired trial, unknown provider cache condition, and **60 AI credits
+  in summed planned session caps**. Override with `--trials` and `--budget`.
+- The controller sums caps across both variants, sessions, repetitions, and trials
+  before running. This is admission control, not an exact billing cutoff.
+- Copilot CLI 1.0.98 requires a minimum session cap of 30 AI credits. Lower prompt
+  caps fail validation before Docker or inference; two single-session variants
+  therefore reserve at least 60 credits in planned soft caps.
+- `structured-extraction` is ready without fixtures and has a deterministic grader
+  for all listed acceptance criteria. `one-shot` is ready without fixtures, but its
+  semantic no-invented-facts criterion requires review.
+- Multi-turn/session markers, phase model/effort/tool overrides, repetitions, batch
+  inputs, and fixture expansion are supported. Each batch-fixture JSONL line must
+  be one JSON array of tickets, one line per repetition; ticket fields `label`,
+  `gold_label`, and `goldLabel` are withheld from model input.
+- Other patterns fail preflight until their declared fixtures exist. Fixture
+  symlinks and paths escaping the repository are rejected. Fixture source hashes
+  must match across variants.
+- `none` exposes an empty tool list; `read-only` exposes `view`, `glob`, and `grep`;
+  `web` exposes `web_search` and `web_fetch`; `default` permits ordinary CLI tools
+  inside the disposable container. Built-in MCP servers are disabled.
+- Specialized profiles (`mock-observability`, `read-only+shell-test`) require an
+  explicit tool binding. Their test fixtures/runners are not supplied here.
+- Explicit subagent model/mechanism experiments are rejected rather than silently
+  ignoring configuration. The separate agent-assets library is not automatically
+  installed or activated. These surfaces need dedicated runner support.
+- Fixture tests and semantic rubrics beyond the two inline graders need external
+  review; completed model execution is not automatically an accepted completion.
+
+### Review results
+
+```powershell
+node .\tests\harness.mjs review-template --run <run-id>
+```
+
+This creates `review-template.json` beside each `result.json`. Inspect the output,
+diff, events, and fixture-test evidence; fill `reviewer`, top-level `evidence`, and
+each criterion's `pass`/`fail` status and evidence. Save it as `review.json` beside
+the result and regenerate the report. A source hash binds the review to the original
+result. Missing, invalid, or stale reviews never silently become passing results.
+
 ## Architecture
 
 ```text
-Host: control script (planned)
+Host: harness.mjs
   |
   +-- good container: gh + Copilot CLI + good prompt/assets + fixture copy
   +-- bad container:  gh + Copilot CLI + bad prompt/assets + fixture copy
   |
-  +-- evidence from both containers -> shared acceptance grader -> paired report
+  +-- evidence -> deterministic checks / explicit review -> paired report
 ```
 
-The controller starts two fresh, separately named containers per paired trial.
+The controller prepares two fresh, separately named containers per paired repetition.
 Both use the same pinned image, GitHub CLI (`gh`), Copilot CLI, runtime dependencies,
-resource limits, and fixture snapshot. `gh` alone is not a model runner: install
-Copilot CLI as well and verify `gh copilot -- --help` in the image.
+resource limits, and fixture snapshot. Both are prepared before dispatch, then run
+sequentially to reduce rate-limit contention; the starting variant alternates.
+`gh` alone is not a model runner; the image includes Copilot CLI as well.
 
 The controller owns configuration, lifecycle, dispatch, timeouts, evidence
 collection, grading, and reporting. Containers execute the assigned workload;
@@ -53,27 +157,38 @@ writable. Copy only the selected prompts, assets, and fixtures.
    partial evidence and terminate only the affected trial's processes/containers.
 7. Grade both variants independently against the same acceptance criteria, then
    produce a paired report. Preserve failures, retries, and cap-hit attempts.
-8. Always collect available evidence and remove the trial's containers, networks,
-   and temporary credentials, including when setup, execution, or grading fails.
+8. Collect available evidence and remove the trial's containers, including when
+   execution or grading fails. Authentication volumes persist intentionally.
+   SIGINT/SIGTERM trigger scoped stopping/cleanup; a hard kill, host crash, or
+   unavailable Docker daemon can require manual cleanup of recorded container names.
 
 ### Isolation and authentication
 
 - Use disposable, non-privileged containers with CPU, memory, and process limits.
   No Docker socket, host home directory, host credentials, or production access.
-- Keep authentication outside the model-accessible workspace. Prefer a
-  controller-owned credential boundary that permits only required inference.
-  Do not assume that an environment token or secret mount is hidden from shell tools.
-  If that boundary is unavailable, block sandbox-only agentic trials rather than
-  expose credentials to the bad variant.
-- Restrict network access to the experiment's required services. Web research
-  trials need an explicitly recorded exception; mock external tools where possible.
-  Do not grant repository push access.
+- Authenticate good and bad independently with `copilot login --device-code`.
+  Runtime containers mount only their own auth volume read-only and copy its state
+  into a fresh disposable home. Sessions and workspace changes are not written back.
+- These are trusted prompt-efficiency experiments, **not adversarial isolation
+  tests**. OAuth credentials can be read by shell-capable tools inside their own
+  container. Read-only mounting does not hide secrets. Separate device logins do
+  not create separate GitHub identities, permissions, billing, or quotas.
+- Runtime containers use Docker's normal outbound network. Egress allowlisting
+  and an inference-only credential broker are not implemented. Fixtures start in
+  a fresh Git repository without configured push remotes, but this is not an
+  enforceable account-permission boundary.
 - Enforce tool allowlists in the runner, not just prompt text. Do not indiscriminately
   enable all tools. A container is not a complete security boundary.
 - Treat `max_ai_credits` as a soft session limit. Also enforce wall-clock limits
-  and an aggregate experiment budget across phases, repetitions, retries, and workers;
-  do not promise an exact hard billing cutoff.
-- Keep credentials and authorization headers out of all evidence and reports.
+  and aggregate planned session caps across phases/repetitions/trials. There are
+  no automatic retries. Explicit worker-model orchestration remains unsupported;
+  any incidental subagent usage is subject to CLI session controls, not a separate
+  hard billing guarantee.
+- Known GitHub token prefixes and bearer headers are redacted from runtime logs.
+  Do not put secrets in fixtures/prompts; inspect evidence before sharing it.
+  No credential volume or home directory is exported as experiment evidence.
+- Copilot login does not separately authenticate general `gh` commands. These
+  experiments do not require authenticated repository API access.
 
 ## Experimental methodology
 
@@ -112,20 +227,30 @@ beside any cost comparison.
 
 ## Evidence and report contract
 
-Planned output layout (not yet produced by a controller):
+Output layout:
 
 ```text
 results/<run-id>/
   manifest.json
-  good/
-    input.md
-    events.jsonl
-    stdout.log
-    stderr.log
-    changes.patch
-    result.json
-  bad/
-    ...same evidence...
+  resolved-plan.json
+  status.json
+  snapshot/
+  trial-1/
+    repetition-1/
+      good/
+        plan.json
+        session-1-turn-1-input.md
+        session-1-turn-1-stdout.log
+        session-1-turn-1-stderr.log
+        events.jsonl
+        output.md
+        changes.patch
+        model-inventory.json
+        versions.json
+        container-state.json
+        result.json
+      bad/
+        ...same evidence...
   comparison.json
   report.md
 ```
@@ -133,14 +258,19 @@ results/<run-id>/
 Use per-session/per-turn input files where a trial has multiple inputs. The manifest
 records the run ID, timestamps, source/fixture hashes (including uncommitted inputs),
 image digest, CLI versions, model catalog snapshot, resolved config, execution order,
-repetition, and cache condition.
+repetition, and cache condition. Setup failures may only produce controller logs,
+status, and an incomplete report. Partial evidence is retained after failed runs.
 
 Each result records acceptance per criterion; session/turn IDs; requested and actual
 models (including workers); effort and tools; input/cache-read/cache-write/output
 tokens using the provider's definitions; measured cost and units; model/tool calls;
 workers and iterations; elapsed time; exit status; cap hits; output size; and file
-changes. Missing fields must be explicitly unknown. Avoid double-counting reasoning
-or cache tokens already included in other totals.
+changes. Missing fields are `null` (unknown). Usage prefers the final cumulative
+`session.shutdown` summary per session; it is never added to per-call
+`assistant.usage` totals. If a shutdown summary is missing, available per-call usage
+is retained but cost is marked incomplete. Raw nano-AIU values remain in their
+reported units; no dollar or AI-credit conversion is assumed. Avoid double-counting
+reasoning or cache tokens already included in other totals.
 
 The comparison reports paired acceptance, total measured spend, cost per accepted
 completion, latency, and the observed differences. Link claims to raw evidence and

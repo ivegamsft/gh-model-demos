@@ -34,6 +34,7 @@ export function parsePrompt(text, pattern, variant) {
     throw new Error(`Fixtures must be paths beneath fixtures/: ${metadata.id}`);
   }
   positive(metadata.caps?.max_ai_credits, 'max_ai_credits');
+  if (metadata.caps.max_ai_credits < 30) throw new Error('Copilot CLI 1.0.98 requires a session cap of at least 30 AI credits.');
   positive(metadata.caps?.timeout_minutes, 'timeout_minutes');
   positive(metadata.repetitions ?? 1, 'repetitions', true);
   const sessions = match[2].trim().split(/<!--\s*session\s*-->/).map(body =>
@@ -166,8 +167,8 @@ export function expandPrompt(text, { files, batch, previousOutput, now }) {
   });
 }
 
-export function cliArgs(phase, caps, sessionId, prompt) {
-  const args = ['--prompt', prompt, '--model', phase.model, '--session-id', sessionId,
+export function cliArgs(phase, caps, sessionId) {
+  const args = ['--model', phase.model, '--session-id', sessionId,
     '--max-ai-credits', String(caps.max_ai_credits), '--no-ask-user',
     '--output-format', 'json', '--stream', 'on', '--disable-builtin-mcps', '--allow-all-tools'];
   if (phase.effort) args.push('--reasoning-effort', phase.effort);
@@ -177,20 +178,42 @@ export function cliArgs(phase, caps, sessionId, prompt) {
 
 export function summarizeEvents(events) {
   const usage = events.filter(event => event.type === 'assistant.usage');
+  const sessions = new Set(events.map(event => event.harnessSessionId).filter(Boolean));
+  const shutdowns = new Map();
+  for (const event of events) {
+    if (event.type === 'session.shutdown' && !event.agentId && event.harnessSessionId) {
+      shutdowns.set(event.harnessSessionId, event.data);
+    }
+  }
+  const completeSessions = sessions.size > 0 && shutdowns.size === sessions.size;
+  const modelMetrics = [...shutdowns.values()].flatMap(data => Object.entries(data.modelMetrics ?? {}));
+  const summarizedTokens = field => completeSessions && modelMetrics.length > 0 &&
+    modelMetrics.every(([, metric]) => Number.isFinite(metric.usage?.[field]))
+    ? modelMetrics.reduce((sum, [, metric]) => sum + metric.usage[field], 0) : null;
   const total = field => usage.length && usage.every(event => Number.isFinite(event.data?.[field]))
     ? usage.reduce((sum, event) => sum + event.data[field], 0) : null;
-  const nanoAiu = usage.length && usage.every(event =>
+  const partialNanoAiu = usage.length && usage.every(event =>
     Number.isFinite(event.data?.copilotUsage?.totalNanoAiu))
     ? usage.reduce((sum, event) => sum + event.data.copilotUsage.totalNanoAiu, 0) : null;
+  const costComplete = completeSessions &&
+    [...shutdowns.values()].every(data => Number.isFinite(data.totalNanoAiu));
+  const nanoAiu = costComplete
+    ? [...shutdowns.values()].reduce((sum, data) => sum + data.totalNanoAiu, 0) : partialNanoAiu;
   return {
     reportedUsageCalls: usage.length || null,
-    actualModels: [...new Set(usage.map(event => event.data?.model).filter(Boolean))],
-    inputTokens: total('inputTokens'), outputTokens: total('outputTokens'),
-    cacheReadTokens: total('cacheReadTokens'), cacheWriteTokens: total('cacheWriteTokens'),
-    nanoAiu, costUnit: 'nano-AIU',
+    modelCalls: completeSessions && modelMetrics.length > 0 &&
+      modelMetrics.every(([, metric]) => Number.isFinite(metric.requests?.count))
+      ? modelMetrics.reduce((sum, [, metric]) => sum + metric.requests.count, 0) : usage.length || null,
+    actualModels: [...new Set([...usage.map(event => event.data?.model), ...modelMetrics.map(([model]) => model)].filter(Boolean))],
+    inputTokens: summarizedTokens('inputTokens') ?? total('inputTokens'),
+    outputTokens: summarizedTokens('outputTokens') ?? total('outputTokens'),
+    cacheReadTokens: summarizedTokens('cacheReadTokens') ?? total('cacheReadTokens'),
+    cacheWriteTokens: summarizedTokens('cacheWriteTokens') ?? total('cacheWriteTokens'),
+    nanoAiu, costUnit: 'nano-AIU', costComplete,
+    usageSource: completeSessions ? 'latest session.shutdown per session' : 'assistant.usage; completeness unknown',
     toolCalls: events.filter(event => event.type === 'tool.execution_start').length,
     subagents: events.filter(event => event.type === 'subagent.started').length,
-    note: 'Only reported assistant.usage events are summed. Missing fields remain unknown; no dollar/credit conversion is assumed.',
+    note: 'Cumulative shutdown summaries are counted once per session, never added to per-call usage. Missing fields remain unknown; no dollar/credit conversion is assumed.',
   };
 }
 
@@ -250,7 +273,8 @@ export function comparison(results) {
   return Object.fromEntries(['good', 'bad'].map(variant => {
     const runs = results.filter(result => result.variant === variant);
     const acceptedCount = runs.filter(accepted).length;
-    const complete = runs.length > 0 && runs.every(result => Number.isFinite(result.metrics?.nanoAiu));
+    const complete = runs.length > 0 && runs.every(result =>
+      result.metrics?.costComplete === true && Number.isFinite(result.metrics?.nanoAiu));
     const total = complete ? runs.reduce((sum, run) => sum + run.metrics.nanoAiu, 0) : null;
     return [variant, { attempts: runs.length, accepted: acceptedCount,
       needsReview: runs.filter(run => run.acceptance.some(check => check.status === 'needs-review')).length,

@@ -5,3 +5,6 @@
 !harness-lib.mjs
 !worker.mjs
 !dump-models.mjs
+!.build-packages/
+!.build-packages/**
+.build-packages/*/*.tgz

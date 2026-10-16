@@ -2,7 +2,7 @@
   "name": "model-usage-experiments",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": { "node": ">=22.12.0" },
   "scripts": {
     "test": "node --test harness.test.mjs",
     "preflight": "node harness.mjs preflight",
@@ -13,6 +13,7 @@
     "report": "node harness.mjs report"
   },
   "dependencies": {
+    "@github/copilot-sdk": "1.0.22",
     "yaml": "2.9.1"
   }
 }

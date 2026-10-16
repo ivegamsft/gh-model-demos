@@ -10,7 +10,7 @@ config:
   reasoning_effort: low
   tools: none
 caps:
-  max_ai_credits: 10
+  max_ai_credits: 30
   timeout_minutes: 5
 fixtures: []
 acceptance:
