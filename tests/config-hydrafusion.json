@@ -1,0 +1,27 @@
+{
+  "image": "gh-model-experiments:hydrafusion-full",
+  "authVolumes": {
+    "good": "gh-model-experiments-good-auth",
+    "bad": "gh-model-experiments-bad-auth"
+  },
+  "modelClasses": {
+    "light": "hydrafusion",
+    "mid": "hydrafusion",
+    "strong": "hydrafusion"
+  },
+  "enableHydrafusion": true,
+  "toolProfiles": {
+    "none": [],
+    "read-only": ["view", "glob", "grep"],
+    "web": ["web_fetch"],
+    "read-only+shell-test": ["view", "glob", "grep", "bash", "read_bash", "stop_bash"],
+    "mock-observability": ["mcp:*"],
+    "default": null
+  },
+  "maxPlannedAiCredits": 12800,
+  "trials": 5,
+  "cpus": 2,
+  "memory": "2g",
+  "pidsLimit": 256,
+  "cacheCondition": "unknown"
+}

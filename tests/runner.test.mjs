@@ -2,15 +2,102 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import fs from 'node:fs/promises';
-import { atomicJson, cliArgs, previewLinks, validateCatalog } from './harness-lib.mjs';
+import { atomicJson, cliArgs, relativeLinks, resolveConfig, validateCatalog } from './harness-lib.mjs';
 import { configureSubagents } from './worker.mjs';
 import { dispatch, query } from './mock-observability.mjs';
+import { reserveDirectory, resultLocation, runDirectories } from './result-paths.mjs';
+import { migrateResults } from './migrate-results.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
+
+test('HydraFusion requires explicit rollout opt-in and records non-effort-matched CLI settings', () => {
+  const prompt = { config: { surface: 'copilot-cli', model_class: 'mid', reasoning_effort: 'medium', tools: 'none' },
+    sessions: [['test']] };
+  const config = { modelClasses: { mid: 'hydrafusion' }, toolProfiles: { none: [] } };
+  assert.throws(() => resolveConfig(prompt, config), /enableHydrafusion/);
+  const [phase] = resolveConfig(prompt, { ...config, enableHydrafusion: true });
+  assert.equal(phase.effort, undefined);
+  assert.equal(phase.requestedEffort, 'medium');
+  assert.equal(phase.experimentalHydrafusion, true);
+  assert.doesNotThrow(() => validateCatalog([phase], []));
+  assert.throws(() => validateCatalog([{ model: 'hydrafusion' }], []), /Unavailable/);
+  assert.throws(() => validateCatalog([{ ...phase, effort: 'medium' }], []), /Invalid experimental/);
+  assert.doesNotThrow(() => validateCatalog([{ ...phase, subagentModel: 'hydrafusion' }], []));
+  assert.throws(() => validateCatalog([{ ...phase, subagentModel: 'other' }], []), /Invalid experimental/);
+  const args = cliArgs(phase, { max_ai_credits: 40 }, 'session');
+  assert.ok(args.includes('--experimental'));
+  assert.deepEqual(args.slice(args.indexOf('--context'), args.indexOf('--context') + 2), ['--context', 'default']);
+  assert.ok(!args.includes('--reasoning-effort'));
+});
+
+test('result folders use atomic sortable reservations and migrate without changing frozen evidence', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'result-layout-'));
+  try {
+    const reserved = await Promise.all(Array.from({ length: 3 }, () => reserveDirectory(join(root, 'sample'), 'run')));
+    assert.deepEqual(reserved.map(item => item.id).sort(), ['run-000001', 'run-000002', 'run-000003']);
+    const matrix = await reserveDirectory(join(root, 'matrices'), 'matrix');
+    const matrixPlan = JSON.stringify({ id: matrix.id, jobs: [], cells: [] });
+    await writeFile(join(matrix.path, 'plan.json'), matrixPlan);
+    await writeFile(join(matrix.path, 'state.json'), '[]');
+    const legacy = join(root, '2026-old-run');
+    await fs.mkdir(legacy);
+    const manifest = '{"runId":"2026-old-run","pattern":"sample","createdAt":"2026-01-01T00:00:00.000Z"}';
+    await writeFile(join(legacy, 'manifest.json'), manifest);
+    await writeFile(join(legacy, 'result.json'), '{"untouched":true}');
+    await writeFile(join(legacy, 'report.md'), '[result](result.json)\n[index](../index.md)');
+    await writeFile(join(root, 'index.md'), '[run](2026-old-run/report.md)');
+    assert.deepEqual(await migrateResults(root), { moved: 1, repaired: 2 });
+    const location = await resultLocation(root, '2026-old-run');
+    assert.equal(location, join(root, 'sample', 'run-000004'));
+    assert.equal(await readFile(join(location, 'manifest.json'), 'utf8'), manifest);
+    assert.equal(await readFile(join(location, 'result.json'), 'utf8'), '{"untouched":true}');
+    assert.equal(await readFile(join(root, 'index.md'), 'utf8'), '[run](sample/run-000004/report.md)');
+    assert.equal(await readFile(join(location, 'report.md'), 'utf8'), '[result](result.json)\n[index](../../index.md)');
+    assert.deepEqual(await runDirectories(root), [location]);
+    assert.deepEqual(await migrateResults(root), { moved: 0, repaired: 0 });
+    assert.equal(await resultLocation(root, 'sample/run-000004'), location);
+    await assert.rejects(resultLocation(root, '../escape'), /escaping/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('matrix migration groups evidence, resolves pending jobs, and retains immutable plans', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'matrix-layout-'));
+  try {
+    const oldMatrix = 'matrix-2026-old';
+    const matrixPath = join(root, 'matrices', oldMatrix);
+    await fs.mkdir(matrixPath, { recursive: true });
+    const jobs = [1, 2].map(trial => ({
+      id: `cell-1-trial-${trial}`, cellId: 'cell-1', trial,
+      runId: `${oldMatrix}-cell-1-trial-${trial}`, state: trial === 1 ? 'completed' : 'pending',
+    }));
+    const plan = JSON.stringify({ id: oldMatrix, jobs, cells: [{ id: 'cell-1', pattern: 'sample' }] });
+    await writeFile(join(matrixPath, 'plan.json'), plan);
+    await writeFile(join(matrixPath, 'state.json'), JSON.stringify(jobs));
+    const runPath = join(root, jobs[0].runId);
+    await fs.mkdir(runPath);
+    await writeFile(join(runPath, 'manifest.json'), JSON.stringify({
+      runId: jobs[0].runId, pattern: 'sample', matrix: { id: oldMatrix, cellId: 'cell-1', trial: 1 },
+    }));
+    await writeFile(join(runPath, 'report.md'), '[matrix](../matrices/matrix-2026-old/report.md)');
+    await writeFile(join(matrixPath, 'report.md'), `[run](../../${jobs[0].runId}/report.md)`);
+    await writeFile(join(matrixPath, 'runner.lock'), 'active');
+    await assert.rejects(migrateResults(root), /Stop the matrix controller/);
+    await fs.unlink(join(matrixPath, 'runner.lock'));
+    assert.deepEqual(await migrateResults(root), { moved: 2, repaired: 2 });
+    const newMatrix = join(root, 'matrices', 'matrix-000001');
+    assert.equal(await resultLocation(root, `matrices/${oldMatrix}`), newMatrix);
+    assert.equal(await resultLocation(root, jobs[1].runId), join(newMatrix, 'runs', 'sample', 'cell-0001-trial-0002'));
+    assert.equal(await readFile(join(newMatrix, 'plan.json'), 'utf8'), plan);
+    assert.equal(await readFile(join(newMatrix, 'report.md'), 'utf8'), '[run](runs/sample/cell-0001-trial-0001/report.md)');
+    assert.equal(await readFile(join(newMatrix, 'runs', 'sample', 'cell-0001-trial-0001', 'report.md'), 'utf8'),
+      '[matrix](../../../report.md)');
+    assert.deepEqual(await migrateResults(root), { moved: 0, repaired: 0 });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 test('checkpoint writes retry transient file locks, preserve existing data on permanent error, and clean temporary files', async t => {
   const path = await mkdtemp(join(tmpdir(), 'checkpoint-'));
@@ -32,19 +119,24 @@ test('checkpoint writes retry transient file locks, preserve existing data on pe
   } finally { replacement.mock.restore(); await rm(path, { recursive: true, force: true }); }
 });
 
-test('VS Code preview links are absolute file URIs with escaped Windows-safe paths and remain idempotent', () => {
+test('report links are relative, escaped, portable, and idempotent', () => {
   const path = join(tmpdir(), 'report folder', 'report.md');
   const source = '[output](nested/output.md) | [space](a%20b.md) | [web](https://example.com) | [section](#heading)';
-  const linked = previewLinks(source, path);
-  const targets = [...linked.matchAll(/\]\(<(file:[^>]+)>\)/g)].map(match => fileURLToPath(match[1]));
-  assert.deepEqual(targets, [join(dirname(path), 'nested', 'output.md'), join(dirname(path), 'a b.md')]);
-  assert.match(linked, /report%20folder/);
+  const linked = relativeLinks(source, path);
+  assert.equal(linked, source);
+  const absolute = pathToFileURL(join(dirname(path), '..', 'a b(1).md')).href.replaceAll(')', '%29');
+  assert.equal(relativeLinks(`[file](<${absolute}#section>)`, path), '[file](../a%20b%281%29.md#section)');
+  assert.equal(relativeLinks(`[file](<${join(dirname(path), 'output.md')}>)`, path), '[file](output.md)');
+  assert.equal(relativeLinks('[space](a b.md)', path), '[space](a%20b.md)');
+  assert.equal(relativeLinks(source, join(tmpdir(), 'moved', 'report.md')), linked);
   assert.match(linked, /\[web\]\(https:\/\/example.com\)/);
   assert.match(linked, /\[section\]\(#heading\)/);
-  assert.equal(previewLinks(linked, path), linked);
+  assert.equal(relativeLinks(linked, path), linked);
+  assert.equal(relativeLinks('[file](../a%20b%281%29.md#section)', path), '[file](../a%20b%281%29.md#section)');
   const quoted = '```markdown\n[verbatim model output](not-a-real-file.md)\n```\n[outside](real.md)';
-  assert.ok(previewLinks(quoted, path).includes('[verbatim model output](not-a-real-file.md)'));
-  assert.match(previewLinks(quoted, path), /\[outside\]\(<file:/);
+  assert.equal(relativeLinks(quoted, path), quoted);
+  assert.equal(relativeLinks(`~~~markdown\n[file](<${absolute}>)\n~~~`, path),
+    `~~~markdown\n[file](<${absolute}>)\n~~~`);
 });
 
 test('subagent settings pin supported built-in workers and preserve unrelated settings', async () => {

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import files from 'node:fs/promises';
 import { readFile, readdir, lstat } from 'node:fs/promises';
 import { resolve, relative, isAbsolute, join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 
 export function inside(root, path) {
@@ -52,7 +52,7 @@ export function hash(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-export function previewLinks(markdown, reportPath) {
+export function relativeLinks(markdown, reportPath) {
   let fence = null;
   return markdown.split('\n').map(line => {
     const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line);
@@ -63,9 +63,20 @@ export function previewLinks(markdown, reportPath) {
     }
     if (fence) return line;
     return line.replace(/(\[[^\]\n]+\])\(([^)\n]+)\)/g, (match, label, target) => {
-      if (/^(?:<?[a-z][a-z0-9+.-]*:|#)/i.test(target)) return match;
-      const uri = pathToFileURL(resolve(reportPath, '..', decodeURIComponent(target))).href.replaceAll(')', '%29');
-      return `${label}(<${uri}>)`;
+      const destination = target.replace(/^<|>$/g, '');
+      if (destination.startsWith('#')) return match;
+      const fileUri = /^file:/i.test(destination);
+      if (!fileUri && !isAbsolute(destination) && /^[a-z][a-z0-9+.-]*:/i.test(destination)) return match;
+      const fragmentAt = destination.indexOf('#');
+      const fragment = fragmentAt < 0 ? '' : destination.slice(fragmentAt);
+      const pathname = fragmentAt < 0 ? destination : destination.slice(0, fragmentAt);
+      const absolute = fileUri ? fileURLToPath(pathname)
+        : resolve(reportPath, '..', decodeURIComponent(pathname));
+      const path = relative(resolve(reportPath, '..'), absolute);
+      if (isAbsolute(path)) throw new Error(`Cannot make report link relative across filesystem roots: ${destination}`);
+      const encoded = path.replaceAll('\\', '/').split('/').map(part =>
+        encodeURIComponent(part).replaceAll('(', '%28').replaceAll(')', '%29')).join('/');
+      return `${label}(${encoded}${fragment})`;
     });
   }).join('\n');
 }
@@ -117,13 +128,25 @@ export function resolveConfig(prompt, config) {
     }
     const subagentModel = phase.subagent_model_class ? config.modelClasses[phase.subagent_model_class] : null;
     if (phase.subagent_model_class && !subagentModel) throw new Error(`No worker model mapping for ${phase.subagent_model_class}`);
-    return { model, effort: phase.reasoning_effort, tools, turns, toolProfile: phase.tools,
+    if (model === 'hydrafusion' && config.enableHydrafusion !== true) {
+      throw new Error('HydraFusion requires explicit enableHydrafusion: true configuration.');
+    }
+    return { model, effort: model === 'hydrafusion' ? undefined : phase.reasoning_effort, tools, turns, toolProfile: phase.tools,
+      ...(model === 'hydrafusion' ? { experimentalHydrafusion: true, requestedEffort: phase.reasoning_effort,
+        effortPolicy: 'HydraFusion-managed; not effort-matched', customInstructions: false } : {}),
       ...(subagentModel ? { subagentModel, subagentMechanism: phase.subagent_mechanism ? 'fleet' : 'native-subagents' } : {}) };
   });
 }
 
 export function validateCatalog(phases, models) {
   for (const phase of phases) {
+    if (phase.experimentalHydrafusion === true) {
+      if (phase.model !== 'hydrafusion' || phase.effort ||
+          (phase.subagentModel && phase.subagentModel !== 'hydrafusion')) {
+        throw new Error('Invalid experimental HydraFusion phase.');
+      }
+      continue;
+    }
     const model = models.find(model => model.id === phase.model);
     if (!model || model.policy?.state === 'disabled') throw new Error(`Unavailable model: ${phase.model}`);
     if (phase.effort && !model.supportedReasoningEfforts?.includes(phase.effort)) {
@@ -230,6 +253,7 @@ export function cliArgs(phase, caps, sessionId) {
   const args = ['--model', phase.model, '--session-id', sessionId,
     '--max-ai-credits', String(caps.max_ai_credits), '--no-ask-user',
     '--output-format', 'json', '--stream', 'on', '--disable-builtin-mcps', '--allow-all-tools', '--no-auto-update'];
+  if (phase.experimentalHydrafusion) args.push('--experimental', '--context', 'default');
   if (phase.customInstructions === false) args.push('--no-custom-instructions');
   if (phase.subagentMechanism === 'fleet') args.push('--fleet');
   if (phase.toolProfile === 'mock-observability') {

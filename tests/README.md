@@ -47,7 +47,7 @@ The base image uses a Node 24 tag; each experiment records the actual image ID.
 # Basic paired experiment; the command prints its run ID.
 node .\tests\harness.mjs run --pattern one-shot
 
-# In a second terminal, substitute the printed ID (not an absolute path).
+# In a second terminal, substitute the printed results-relative run path.
 node .\tests\harness.mjs monitor --run <run-id> --watch
 
 # Regenerate a report from saved evidence, without making model calls.
@@ -65,7 +65,7 @@ npm test --prefix .\tests
 
 Monitoring shows controller/worker state and live Docker CPU/memory statistics.
 The controller prints session/turn progress while running. Reports and raw evidence
-are saved under the ignored `results/<run-id>/` directory.
+are saved under the ignored `results/` directory, grouped by pattern and matrix.
 Reports are organized around **what we tested, what we expected, what happened,
 and insights/next steps**. They show the prompt contrast, hypothesis provenance,
 criterion-by-criterion decisions, response previews, and direct evidence links.
@@ -82,6 +82,35 @@ original attempt results. The run index keeps dry runs and execution failures
 separate from measured experiments; it does not pool unrelated smoke tests.
 Prompt bodies are sent on stdin, avoiding command-line argument length limits for
 large fixture expansions and keeping their text out of process argument listings.
+
+### Sortable result layout and archiving
+
+Standalone runs use `results/<pattern>/run-000001/`. Matrices use
+`results/matrices/matrix-000001/`, with their paired evidence beneath
+`runs/<pattern>/cell-0001-trial-0001/`. IDs are zero-padded and allocated without
+overwriting existing directories. UTC timestamps remain in JSON metadata and
+report headers rather than folder names. Keep standard filenames such as
+`report.md`, `manifest.json`, and `result.json` inside each evidence directory.
+
+Use the printed results-relative path with `harness.mjs --run`, for example
+`--run structured-extraction/run-000001`. Matrix commands use `--matrix matrix-000001`.
+The run index discovers both standalone and nested matrix runs.
+
+To migrate an existing flat timestamp-named result collection without inference:
+
+```powershell
+node .\tests\migrate-results.mjs
+node .\tests\harness.mjs report --all
+```
+
+The migration moves evidence, rebases report links, and records old-to-new paths
+in `results/locations.json`. Frozen plans, checkpoint IDs, manifests, grades, and
+raw evidence retain their original contents; legacy CLI IDs still resolve through
+the location registry. Keep that registry when archiving the result collection.
+Matrix folders contain their paired evidence and can be archived as a unit.
+Links to repository source files require the checkout layout to remain available.
+Do not migrate while controllers are running. Regenerating reports does not resume
+old matrices; controller hash checks still apply to their frozen plans.
 
 ### Model, prompt, instruction, and workload matrix
 
@@ -125,7 +154,8 @@ node .\tests\matrix.mjs report --matrix <matrix-id>
 
 Planning saves `results/matrices/<matrix-id>/plan.json`, `state.json`, `report.md`,
 `summary.json`, and `contrasts.json`. Each trial/cell uses a normal evidence-rich
-paired run under `results/<paired-run-id>/`. Factor rows show acceptance/rejection/
+paired run under that matrix's `runs/<pattern>/cell-0001-trial-0001/`.
+Factor rows show acceptance/rejection/
 review/execution-failure counts, cost per accepted completion (including known
 failed spend), total AIU, tokens/cache, latency, staged instruction bytes, and actual
 models. Matched prompt and instruction deltas hold other factors fixed. Deltas are
@@ -136,11 +166,11 @@ regenerating the matrix so reviewed decisions enter the aggregate.
 Matched model deltas use `gpt-5-mini` as baseline when selected, otherwise the first
 selected model; Auto/provider-default comparisons are explicitly not effort-matched.
 Reports identify each selected model's family without extrapolating a representative's
-results to its entire family. Saved reports use explicit, percent-encoded `file:`
-URIs for VS Code Markdown preview (including prompt pairs, instruction assets,
-methodology, and evidence). These links refer to this local checkout; regenerate
-reports after moving it. Missing historical fixture paths remain diagnostic code,
-not links to nonexistent evidence.
+results to its entire family. Saved reports use percent-encoded paths relative to
+each Markdown file (including prompt pairs, instruction assets, methodology, and
+evidence). Links remain portable when the checkout moves, provided its directory
+layout is preserved. Missing historical fixture paths remain diagnostic code, not
+links to nonexistent evidence.
 
 Repository instructions are installed beneath `.github/` in the disposable
 workspace before its Git baseline. Their exact contents/hashes and
@@ -202,6 +232,31 @@ Do not mark an uncertain job pending merely to retry it; that could duplicate sp
 Preserve the evidence and create a separately budgeted follow-up plan instead.
 
 ### Configuration and current coverage
+
+For an explicit HydraFusion/Ensemble paired run, map the desired model classes
+to `hydrafusion` and set `enableHydrafusion: true` in a separate configuration.
+Workers enable `HYDRAFUSION_ROLLOUT`, use experimental mode and default context,
+and require `session.fusion_resolved` evidence before marking execution successful.
+This synthetic orchestration treatment is not advertised by `listModels()` and
+is not automatically added to catalog-based matrices. An explicitly opted-in
+configuration can select it using `matrix.mjs plan --models hydrafusion`.
+Reasoning effort is managed
+by HydraFusion and is explicitly not effort-matched to the prompt's requested
+effort. Matrix workers request the same synthetic model: homogeneous orchestration,
+not light/strong tier routing. Trial-one worker treatments run first as validation
+gates. Both variants must actually spawn workers reporting `hydrafusion`; missing
+or mismatched evidence stops further dispatch, preserving all attempts.
+
+The full homogeneous treatment uses [config-hydrafusion.json](config-hydrafusion.json):
+
+```powershell
+node .\tests\matrix.mjs plan --config .\tests\config-hydrafusion.json --models hydrafusion --contexts none --trials 5
+node .\tests\matrix.mjs run --matrix <matrix-id> --budget 12800
+```
+
+This plans 16 patterns, 80 paired jobs, 200 attempts (including classification
+repetitions), and 205 sessions. The 12,800-credit aggregate is a soft-cap
+reservation, not expected spend. Approve it explicitly before execution.
 
 [config.json](config.json) maps model classes to concrete IDs, tool profiles to
 allowlists, resource limits, auth-volume names, and the experiment budget. All three
@@ -381,7 +436,7 @@ beside any cost comparison.
 Output layout:
 
 ```text
-results/<run-id>/
+results/<pattern>/run-000001/
   manifest.json
   resolved-plan.json
   status.json

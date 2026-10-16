@@ -146,8 +146,19 @@ async function main() {
   let failure = null;
   let capHit = null;
   let lastOutput = '';
+  let nestedHydrafusion = null;
   try {
     await status({ state: 'preflight', variant: plan.variant });
+    if (plan.phases.some(phase => phase.experimentalHydrafusion === true)) {
+      process.env.COPILOT_CLI_ENABLED_FEATURE_FLAGS = [
+        process.env.COPILOT_CLI_ENABLED_FEATURE_FLAGS, 'HYDRAFUSION_ROLLOUT',
+      ].filter(Boolean).join(',');
+      await json(join(evidence, 'experimental-features.json'), {
+        enabledFeatureFlags: process.env.COPILOT_CLI_ENABLED_FEATURE_FLAGS,
+        syntheticModel: 'hydrafusion', context: 'default',
+        catalogNote: 'Explicit rollout opt-in; synthetic model is not advertised by listModels. Execution is verified from fusion events.',
+      });
+    }
     validateCatalog(plan.phases, await catalog());
     await cp('/job/snapshot', workspace, { recursive: true });
     if (plan.context) {
@@ -220,6 +231,23 @@ async function main() {
           throw new Error('Trial wall-clock cap exceeded.');
         }
         if (result.code !== 0) throw new Error(`Copilot exited with status ${result.code}. See ${prefix}-stderr.log.`);
+        if (phase.experimentalHydrafusion && ![...streamed, ...newStored].some(event =>
+          event.type === 'session.fusion_resolved' && event.data?.syntheticModel === 'hydrafusion')) {
+          throw new Error('HydraFusion execution did not emit the required fusion routing evidence.');
+        }
+        if (phase.experimentalHydrafusion && phase.subagentModel) {
+          const workers = events.filter(event => event.type === 'subagent.started');
+          nestedHydrafusion = {
+            verified: workers.length > 0 && workers.every(event => event.data?.model === 'hydrafusion'),
+            requestedModel: phase.subagentModel,
+            observedWorkers: workers.map(event => ({ agentName: event.data?.agentName,
+              model: event.data?.model ?? null, selectionSource: event.data?.modelSelectionSource ?? null })),
+          };
+          await json(join(evidence, 'nested-hydrafusion.json'), nestedHydrafusion);
+          if (workers.some(event => event.data?.model !== 'hydrafusion')) {
+            throw new Error('Nested HydraFusion treatment mismatch: a worker did not report hydrafusion as its selected model.');
+          }
+        }
         if (result.stdinError) throw new Error(`Could not deliver complete prompt on stdin: ${result.stdinError}`);
         const errors = [...streamed, ...newStored].filter(event => event.type === 'session.error');
         if (errors.length) throw new Error(`Copilot session error: ${redact(JSON.stringify(errors.at(-1).data))}`);
@@ -252,6 +280,7 @@ async function main() {
       status: state, error: failure, capHit, elapsedMs: Date.now() - began,
       acceptance: grade(plan.pattern, lastOutput, plan.acceptance),
       metrics: summarizeEvents(events), turns: turns.map(({ output, acceptance, ...turn }) => turn),
+      ...(nestedHydrafusion ? { nestedHydrafusion } : {}),
       context: plan.context ? { variant: plan.context.variant, bytes: plan.context.bytes,
         hashes: plan.context.files.map(file => ({ destination: file.destination, sha256: file.sha256 })) } : null,
     };

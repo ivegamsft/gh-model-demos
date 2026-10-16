@@ -26,7 +26,7 @@ export function outcome(result) {
   return 'Awaiting review';
 }
 
-export function renderReport({ manifest, plan, records, controllerError = null }) {
+export function renderReport({ manifest, plan, records, controllerError = null, location = manifest.runId }) {
   const results = records.map(record => record.result);
   const summary = comparison(results);
   const expected = manifest.config.trials * manifest.repetitions * 2;
@@ -42,7 +42,9 @@ export function renderReport({ manifest, plan, records, controllerError = null }
   const lines = [
     `# ${manifest.pattern}: experiment report`, '',
     '## At a glance', '',
-    `- **Run:** ${manifest.runId}`,
+    `- **Run:** ${location}`,
+    ...(location !== manifest.runId ? [`- **Original run ID:** ${manifest.runId}`] : []),
+    `- **Created (UTC):** ${text(manifest.createdAt)}`,
     `- **Execution:** ${execution} (${results.length}/${expected} planned attempts collected).`,
     `- **Quality verdict:** ${verdict}`,
     '- **Interpretation:** Execution success means the CLI finished, not that its answer met the task requirements.',
@@ -71,7 +73,7 @@ export function renderReport({ manifest, plan, records, controllerError = null }
   for (const variant of ['good', 'bad']) {
     const phases = plan.variants[variant].phases;
     lines.push(`| ${variant} | ${phases.map(phase =>
-      `${text(phase.model)} / ${text(phase.effort)} / ${text(phase.toolProfile)}`).join('; ')} | ${phases.map(phase => `1 x ${phase.turns.length}`).join('; ')} |`);
+      `${text(phase.model)} / ${text(phase.effort ?? phase.effortPolicy)} / ${text(phase.toolProfile)}`).join('; ')} | ${phases.map(phase => `1 x ${phase.turns.length}`).join('; ')} |`);
   }
   if (manifest.matrix) {
     const context = plan.variants.good.context;
@@ -104,6 +106,17 @@ export function renderReport({ manifest, plan, records, controllerError = null }
     lines.push(`| [Trial ${result.trial}, rep ${result.repetition}, ${result.variant}](${resultLink}) | ${text(result.status)} | ${outcome(result)} | ${count('pass')} / ${count('fail')} / ${count('needs-review')} | ${number(result.elapsedMs / 1000, 2)} |`);
   }
   if (!records.length) lines.push('| No attempt results | Not measured | No quality conclusion | - | - |');
+  if (records.some(record => record.fusionRoutes?.length)) {
+    lines.push('', '### HydraFusion / Ensemble routing', '',
+      'Observed routing decisions, not inferred from the selected synthetic model. Full phase events remain in the linked model/tool evidence.',
+      '', '| Attempt | Workflow | Primary model | Secondary model | Routing rule |',
+      '|---|---|---|---|---|');
+    for (const { result, fusionRoutes = [] } of records) {
+      for (const route of fusionRoutes) {
+        lines.push(`| ${result.trial}/${result.repetition}/${result.variant} | ${text(route.pattern)} | ${text(route.primaryModel)} | ${text(route.secondaryModel ?? 'none')} | ${text(route.ruleId)} |`);
+      }
+    }
+  }
   if (controllerError) lines.push('', '**Controller failure:**', '', excerpt(controllerError));
   lines.push('', '### Measured model usage', '',
     '| Attempt | Actual model(s) | Input tokens | Cache-read tokens | Output tokens | Model / tool calls | Cost (AIU) | Cost evidence |',

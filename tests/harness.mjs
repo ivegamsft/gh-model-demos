@@ -3,9 +3,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { access, cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { atomicJson as json, buildPlan, hash, inside, positive, previewLinks } from './harness-lib.mjs';
+import { atomicJson as json, buildPlan, hash, inside, positive, relativeLinks } from './harness-lib.mjs';
 import { parse } from 'yaml';
 import { renderReport } from './report.mjs';
+import { reserveDirectory, resultLocation, runDirectories } from './result-paths.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = dirname(directory);
@@ -364,6 +365,8 @@ export async function report(runPath) {
       ['fatal-error.log', 'Fatal error'], ['controller-stderr.log', 'Controller stderr'],
       ['instruction-context.json', 'Staged instruction context'], ['instruction-sources.json', 'Discovered instruction sources'],
       ['mock-observability.jsonl', 'Synthetic MCP queries and results'],
+      ['experimental-features.json', 'Experimental rollout configuration'],
+      ['nested-hydrafusion.json', 'Nested HydraFusion worker validation'],
     ]);
     const artifacts = [];
     for (const name of names.sort()) {
@@ -377,16 +380,21 @@ export async function report(runPath) {
       : ['Full response', 'Result and metrics', 'Human review'].includes(label) ? 1 : 2;
     artifacts.sort((a, b) => priority(a.label) - priority(b.label));
     const output = names.includes('output.md') ? await readFile(join(location, 'output.md'), 'utf8') : null;
+    const fusionRoutes = names.includes('events.jsonl')
+      ? (await readFile(join(location, 'events.jsonl'), 'utf8')).split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line))
+        .filter(event => event.type === 'session.fusion_resolved').map(event => event.data)
+      : [];
     const diagnostics = names.filter(name =>
       /^session-.*-stderr\.log$/.test(name) || ['fatal-error.log', 'error.log'].includes(name));
     const diagnostic = result.status !== 'completed' ? (await Promise.all(diagnostics.map(async name =>
       `${name}:\n${await readFile(join(location, name), 'utf8')}`))).join('\n\n') : null;
-    return { result, resultLink: link('result.json'), artifacts, output, diagnostic };
+    return { result, resultLink: link('result.json'), artifacts, output, diagnostic, fusionRoutes };
   }));
   let controllerError = null;
   try { controllerError = await readFile(join(runPath, 'controller-error.log'), 'utf8'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
-  const rendered = renderReport({ manifest, plan, records, controllerError });
+  const location = relative(resultsRoot, runPath).replaceAll('\\', '/');
+  const rendered = renderReport({ manifest, plan, records, controllerError, location });
   const { summary, complete } = rendered;
   const results = records.map(record => record.result);
   const expected = manifest.config.trials * manifest.repetitions * 2;
@@ -394,19 +402,15 @@ export async function report(runPath) {
     complete, expectedAttempts: expected, collectedAttempts: results.length, summary, results,
   });
   const reportPath = join(runPath, 'report.md');
-  await writeFile(reportPath, previewLinks(rendered.markdown, reportPath));
+  await writeFile(reportPath, relativeLinks(rendered.markdown, reportPath));
   console.log(`Report: ${join(runPath, 'report.md')}`);
-  return { complete, summary, runId: manifest.runId, pattern: manifest.pattern,
+  return { complete, summary, runId: manifest.runId, location, pattern: manifest.pattern,
     execution: rendered.execution, verdict: rendered.verdict };
 }
 
 async function reportAll() {
   const reports = [];
-  for (const entry of (await readdir(resultsRoot, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
-    if (!entry.isDirectory()) continue;
-    const path = join(resultsRoot, entry.name);
-    try { await access(join(path, 'manifest.json')); }
-    catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+  for (const path of await runDirectories(resultsRoot)) {
     reports.push(await report(path));
   }
   const cell = value => String(value).replaceAll('|', '\\|').replace(/[\r\n]+/g, ' ');
@@ -415,21 +419,27 @@ async function reportAll() {
     'Start with a run report for the task, hypotheses, actual responses, acceptance decisions, usage, and insights.',
     'Dry runs validate configuration only. Execution failures are not prompt-quality findings. Repeated smoke tests are separate runs, not an aggregated controlled study.',
     '', '| Run | Pattern | Execution | Quality verdict |', '|---|---|---|---|',
-    ...reports.map(report => `| [${report.runId}](${report.runId}/report.md) | ${cell(report.pattern)} | ${cell(report.execution)} | ${cell(report.verdict)} |`), '',
+    ...reports.map(report => `| [${report.location}](${report.location}/report.md) | ${cell(report.pattern)} | ${cell(report.execution)} | ${cell(report.verdict)} |`), '',
   ];
   const indexPath = join(resultsRoot, 'index.md');
-  await writeFile(indexPath, previewLinks(lines.join('\n'), indexPath));
+  await writeFile(indexPath, relativeLinks(lines.join('\n'), indexPath));
   console.log(`Run index: ${join(resultsRoot, 'index.md')}`);
 }
 
 export async function run(config, opts) {
   const plan = opts.plan ?? await buildPlan(root, opts.pattern ?? 'one-shot', config);
   if (plan.variants.good.repetitions !== plan.variants.bad.repetitions) throw new Error('Paired repetitions must match.');
-  const runId = opts.runId ?? `${new Date().toISOString().replace(/[:.]/g, '-')}-${plan.pattern}-${randomUUID().slice(0, 8)}`;
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(runId)) throw new Error('Invalid run ID.');
-  const runPath = join(resultsRoot, runId);
-  await mkdir(resultsRoot, { recursive: true });
-  await mkdir(runPath);
+  let runId = opts.runId;
+  let runPath;
+  if (runId) {
+    runPath = await resultLocation(resultsRoot, runId);
+    await mkdir(dirname(runPath), { recursive: true });
+    await mkdir(runPath);
+  } else {
+    const reserved = await reserveDirectory(inside(resultsRoot, plan.pattern), 'run');
+    runPath = reserved.path;
+    runId = relative(resultsRoot, runPath).replaceAll('\\', '/');
+  }
   const manifest = {
     runId, pattern: plan.pattern, createdAt: new Date().toISOString(), config,
     plannedAiCredits: plan.plannedAiCredits, repetitions: plan.variants.good.repetitions,
@@ -547,8 +557,8 @@ async function main() {
       await reportAll();
       return;
     }
-    if (!opts.run || !/^[a-zA-Z0-9_.-]+$/.test(opts.run) || opts.run.startsWith('.')) throw new Error('Provide a run ID using --run.');
-    const path = inside(resultsRoot, opts.run);
+    if (!opts.run) throw new Error('Provide a run ID or results-relative path using --run.');
+    const path = await resultLocation(resultsRoot, opts.run);
     if (action === 'report') await report(path);
     else if (action === 'monitor') await monitor(path, opts.watch);
     else {

@@ -16,6 +16,33 @@ const config = JSON.parse(await readFile(join(directory, 'config.json'), 'utf8')
 const models = [{ id: 'gpt-5-mini', supportedReasoningEfforts: ['low', 'medium', 'high'] }, { id: 'auto' }];
 const options = { id: 'matrix-test', seed: 'repeatable', patterns: ['structured-extraction'] };
 
+test('full HydraFusion plan preserves all patterns, explicit effort provenance, exact caps and nested validation gates', async () => {
+  const hydraConfig = JSON.parse(await readFile(join(directory, 'config-hydrafusion.json'), 'utf8'));
+  const plan = await planMatrix(root, hydraConfig,
+    [{ id: 'hydrafusion', experimentalHydrafusion: true }],
+    { id: 'matrix-hydra-test', contexts: ['none'], trials: 5, seed: 'hydra' });
+  assert.equal(plan.coverage.length, 16);
+  assert.equal(plan.cells.filter(cell => cell.state === 'ready').length, 16);
+  assert.equal(plan.jobs.length, 80);
+  assert.equal(plan.attempts, 200);
+  assert.equal(plan.sessions, 205);
+  assert.equal(plan.plannedAiCredits, 12800);
+  assert.equal(plan.jobs.filter(job => job.validatesNestedHydrafusion).length, 2);
+  assert.ok(plan.jobs.slice(0, 2).every(job => job.validatesNestedHydrafusion));
+  for (const cell of plan.cells) {
+    for (const variant of Object.values(cell.plan.variants)) {
+      for (const phase of variant.phases) {
+        assert.equal(phase.model, 'hydrafusion');
+        assert.equal(phase.effort, undefined);
+        assert.ok(phase.requestedEffort);
+        assert.equal(phase.experimentalHydrafusion, true);
+        if (phase.subagentModel) assert.equal(phase.subagentModel, 'hydrafusion');
+      }
+    }
+  }
+  assert.match(renderMatrix(plan, []), /homogeneous orchestration/);
+});
+
 test('family report links resolve from the report location and missing fixtures are not links', async () => {
   const plan = await planMatrix(root, config, models, options);
   const report = renderMatrix(plan, []);
@@ -82,6 +109,8 @@ test('full factorial isolates prompt/model/instruction factors and sums every tr
     assert.notDeepEqual(good.phases[0].turns, bad.phases[0].turns);
   }
   assert.equal(new Set(plan.jobs.map(job => job.runId)).size, 30);
+  assert.ok(plan.jobs.every(job =>
+    /^matrices\/matrix-test\/runs\/structured-extraction\/cell-\d{4}-trial-\d{4}$/.test(job.runId)));
   assert.deepEqual(plan.jobs.map(job => job.id),
     (await planMatrix(root, config, models, options)).jobs.map(job => job.id));
   assert.notDeepEqual(plan.jobs.map(job => job.id),

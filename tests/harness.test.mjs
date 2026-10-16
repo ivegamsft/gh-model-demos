@@ -264,6 +264,10 @@ test('reports explain task, expectations, actual outcomes, units, and cache conf
   assert.match(report.markdown, /\[Full response\]\(bad\/output.md\)/);
   assert.match(report.markdown, /not a statistically established/);
   assert.equal(outcome(records[1].result), 'Not accepted');
+  records[0].fusionRoutes = [{ pattern: 'critique', primaryModel: 'solver', secondaryModel: 'critic', ruleId: 'test-route' }];
+  const routed = renderReport({ manifest, plan, records });
+  assert.match(routed.markdown, /### HydraFusion \/ Ensemble routing/);
+  assert.match(routed.markdown, /\| 1\/1\/good \| critique \| solver \| critic \| test-route \|/);
 });
 
 test('reports distinguish dry runs, failures, missing hypotheses, and unresolved review', async () => {

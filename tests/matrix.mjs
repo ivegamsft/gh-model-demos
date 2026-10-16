@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, open, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { accepted, atomicJson as json, buildPlan, fixtureFiles, hash, inside, parsePrompt, positive, previewLinks, validateCatalog } from './harness-lib.mjs';
+import { accepted, atomicJson as json, buildPlan, fixtureFiles, hash, inside, parsePrompt, positive, relativeLinks, validateCatalog } from './harness-lib.mjs';
 import { isInterrupted, loadConfig, preflight, run } from './harness.mjs';
+import { reserveDirectory, resultLocation } from './result-paths.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = dirname(directory);
@@ -11,7 +12,7 @@ const resultsRoot = join(directory, 'results');
 const matricesRoot = join(resultsRoot, 'matrices');
 const contextVariants = ['none', 'good', 'bad'];
 const driverFiles = ['matrix.mjs', 'harness.mjs', 'harness-lib.mjs', 'worker.mjs', 'report.mjs',
-  'mock-observability.mjs', 'Dockerfile', 'package.json', 'package-lock.json'];
+  'mock-observability.mjs', 'result-paths.mjs', 'Dockerfile', 'package.json', 'package-lock.json'];
 
 async function optionalJson(path) {
   try { return JSON.parse(await readFile(path, 'utf8')); }
@@ -56,10 +57,15 @@ export function adaptModel(plan, model, context) {
     for (const phase of variant.phases) {
       phase.model = model.id;
       if (phase.subagentModel) phase.subagentModel = model.id;
-      phase.requestedEffort = phase.effort ?? null;
+      phase.requestedEffort = phase.requestedEffort ?? phase.effort ?? null;
+      if (model.experimentalHydrafusion === true) {
+        if (model.id !== 'hydrafusion') throw new Error('Invalid synthetic HydraFusion model.');
+        phase.experimentalHydrafusion = true;
+      }
       // Auto and models without effort metadata use the provider default, not an invented effort.
       if (!model.supportedReasoningEfforts?.length) delete phase.effort;
-      phase.effortPolicy = phase.effort ? 'explicit' : 'provider default; not effort-matched';
+      phase.effortPolicy = phase.experimentalHydrafusion ? 'HydraFusion-managed; not effort-matched'
+        : phase.effort ? 'explicit' : 'provider default; not effort-matched';
       phase.customInstructions = context.variant !== 'none';
     }
     validateCatalog(variant.phases, [model]);
@@ -119,8 +125,16 @@ export async function planMatrix(repository, config, models, {
       hash(`${seed}:${trial}:${a.id}`).localeCompare(hash(`${seed}:${trial}:${b.id}`)));
     for (const cell of order) {
       const jobId = `${cell.id}-trial-${trial}`;
-      jobs.push({ id: jobId, cellId: cell.id, trial, state: 'pending', runId: `${id}-${jobId}`,
+      const folder = `cell-${String(Number(cell.id.slice(5))).padStart(4, '0')}-trial-${String(trial).padStart(4, '0')}`;
+      jobs.push({ id: jobId, cellId: cell.id, trial, state: 'pending',
+        runId: `matrices/${id}/runs/${cell.pattern}/${folder}`,
         pairAiCredits: cell.pairAiCredits });
+    }
+    if (models.some(model => model.experimentalHydrafusion)) {
+      const validation = job => job.trial === 1 && cells.find(cell => cell.id === job.cellId)
+        .plan.variants.good.phases.some(phase => phase.subagentModel);
+      jobs.sort((a, b) => Number(validation(b)) - Number(validation(a)));
+      for (const job of jobs.filter(validation)) job.validatesNestedHydrafusion = true;
     }
   }
   const plannedAiCredits = jobs.reduce((sum, job) => sum + job.pairAiCredits, 0);
@@ -239,7 +253,9 @@ export function renderMatrix(plan, summaries) {
     insights.push(`- **Cache imbalance:** observed group cache-read totals range from ${Math.min(...caches)} to ${Math.max(...caches)} tokens. Do not attribute cost differences solely to prompts, instructions, or models.`);
   }
   const lines = [
-    `# Model/context matrix: ${plan.id}`, '',
+    `# Model/context matrix: ${plan.displayId ?? plan.id}`, '',
+    ...(plan.displayId && plan.displayId !== plan.id ? [`Original matrix ID: ${plan.id}`, ''] : []),
+    `Created (UTC): ${text(plan.createdAt)}`, '',
     ...(plan.coverageUpdate ? [
       plan.jobs.every(job => job.state === 'pending')
         ? '**Historical planning snapshot, not an executed experiment.** Its frozen prerequisites have been superseded.'
@@ -265,7 +281,7 @@ export function renderMatrix(plan, summaries) {
     '', '| Family | Selected model |', '|---|---|',
     ...plan.models.map(model => `| ${modelFamily(model.id)} | ${text(model.id)} |`),
     '', '### Source files', '',
-    'Saved report links use explicit file URIs for VS Code Markdown preview, independent of the terminal working directory. Missing fixture paths in historical diagnostics are code, not links.',
+    'Saved report links are relative to this Markdown file and remain portable with the checkout. Missing fixture paths in historical diagnostics are code, not links.',
     '',
     `${sourceLink('Harness methodology', '../../../README.md')} | ${sourceLink('Prompt methodology', '../../../../prompts/README.md')} | ${sourceLink('Instruction asset guide', '../../../../agent-assets/README.md')}`,
     '',
@@ -277,6 +293,9 @@ export function renderMatrix(plan, summaries) {
     'Test whether concise prompts and scoped repository instructions improve acceptance and total cost per accepted completion. Compare prompt variants only within the same model/context/pattern; compare instruction contexts holding model/prompt/pattern constant. Per-pattern hypotheses and rubrics are preserved in each linked paired report.',
     'The instruction factor changes the complete good/bad repository-instruction bundle, not only its length. Context bytes measure files staged, not tokens proven loaded. Discovery evidence is saved per attempt; it does not prove every scoped instruction was attached.',
     'This does not activate skill/agent/prompt-file/progressive-disclosure assets. Auto is a routing treatment: record actual models and do not interpret it as a fixed model. Models without effort metadata use provider defaults, not effort-matched settings.', '',
+    ...(plan.models.some(model => model.experimentalHydrafusion) ? [
+      'HydraFusion is an explicit rollout-enabled synthetic orchestration treatment, not a catalog model. Leads and configured workers request HydraFusion; this is homogeneous orchestration, not light/strong tier routing. Trial-one worker treatments run first as validation gates; missing or mismatched nested evidence stops further dispatch. Requested prompt effort is not matched. Original prompts remain unchanged.',
+    ] : []), '',
     '## Coverage (blocked is not a model failure)', '',
     '| Pattern sources | Workload | Frozen plan | Current prerequisites | Frozen diagnostic |', '|---|---|---|---|---|',
     ...plan.coverage.map(item => `| ${text(item.pattern)}: ${['good', 'bad'].map(variant =>
@@ -309,21 +328,23 @@ export function renderMatrix(plan, summaries) {
     ...(impacts.some(row => row.ready) ? [] : ['No fully evaluated matched groups yet.']),
     '', '## Paired reports and evidence', '',
     ...plan.jobs.filter(job => job.state !== 'pending').map(job =>
-      `- ${job.id}: ${job.state} - ${job.evidenceAvailable ? `[paired report](../../${job.runId}/report.md), [run status](../../${job.runId}/status.json)` : 'paired report not yet available'}${job.error ? ` - ${text(job.error)}` : ''}`),
+      `- ${job.id}: ${job.state} - ${job.evidenceAvailable ? `[paired report](${job.reportDirectory ?? `../../${job.runId}`}/report.md), [run status](${job.reportDirectory ?? `../../${job.runId}`}/status.json)` : 'paired report not yet available'}${job.error ? ` - ${text(job.error)}` : ''}`),
     '', 'Machine-readable factor rows: [summary.json](summary.json). Matched deltas: [contrasts.json](contrasts.json). Frozen plan, context contents/hashes, schedule, catalog and configuration: [plan.json](plan.json). Checkpoint: [state.json](state.json).', '',
   ];
   return lines.join('\n');
 }
 
 export async function matrixReport(path, plan) {
+  plan.displayId = basename(path);
   plan.controllerError = await optionalJson(join(path, 'controller-error.json'));
   const controllerUpdates = await optionalJson(join(path, 'controller-updates.json'));
   plan.controllerUpdates = controllerUpdates?.length ?? 0;
   const update = await optionalJson(join(path, 'coverage-update.json'));
   if (update) {
     if (!/^matrix-[a-zA-Z0-9_.-]+$/.test(update.id)) throw new Error('Invalid replacement coverage plan ID.');
-    const replacement = JSON.parse(await readFile(join(matricesRoot, update.id, 'plan.json'), 'utf8'));
-    plan.coverageUpdate = { id: update.id, coverage: replacement.coverage,
+    const replacementPath = await resultLocation(resultsRoot, `matrices/${update.id}`);
+    const replacement = JSON.parse(await readFile(join(replacementPath, 'plan.json'), 'utf8'));
+    plan.coverageUpdate = { id: relative(dirname(path), replacementPath).replaceAll('\\', '/'), coverage: replacement.coverage,
       readyCells: replacement.cells.filter(cell => cell.state === 'ready').length,
       blockedCells: replacement.cells.filter(cell => cell.state === 'blocked').length };
   }
@@ -331,7 +352,9 @@ export async function matrixReport(path, plan) {
   for (const cell of plan.cells.filter(cell => cell.state === 'ready')) {
     const results = [];
     for (const job of plan.jobs.filter(job => job.cellId === cell.id && job.state !== 'pending')) {
-      const comparison = await optionalJson(join(resultsRoot, job.runId, 'comparison.json'));
+      const runPath = await resultLocation(resultsRoot, job.runId);
+      job.reportDirectory = relative(path, runPath).replaceAll('\\', '/');
+      const comparison = await optionalJson(join(runPath, 'comparison.json'));
       job.evidenceAvailable = Boolean(comparison);
       const actual = comparison?.results ?? [];
       for (const variant of ['good', 'bad']) {
@@ -351,7 +374,7 @@ export async function matrixReport(path, plan) {
   await json(join(path, 'summary.json'), summaries);
   await json(join(path, 'contrasts.json'), matchedContrasts(summaries));
   const reportPath = join(path, 'report.md');
-  await writeFile(reportPath, previewLinks(renderMatrix(plan, summaries), reportPath));
+  await writeFile(reportPath, relativeLinks(renderMatrix(plan, summaries), reportPath));
   return summaries;
 }
 
@@ -426,6 +449,15 @@ async function executeMatrix(path, plan, opts) {
       job.finishedAt = new Date().toISOString();
       await json(join(path, 'state.json'), plan.jobs);
       await matrixReport(path, plan);
+      if (job.validatesNestedHydrafusion) {
+        const comparison = await optionalJson(join(result.runPath, 'comparison.json'));
+        const attempts = comparison?.results ?? [];
+        const validation = { jobId: job.id, checkedAt: new Date().toISOString(), passed:
+          !result.failed && attempts.length === 2 && attempts.every(attempt =>
+            attempt.nestedHydrafusion?.verified === true) };
+        await json(join(result.runPath, 'nested-validation.json'), validation);
+        if (!validation.passed) throw new Error(`Nested HydraFusion validation failed for ${job.id}; remaining jobs were not dispatched. Inspect nested-validation.json and worker evidence.`);
+      }
     }
   } catch (error) {
     await json(join(path, 'controller-error.json'), {
@@ -463,7 +495,7 @@ async function main() {
     let previousPath;
     if (action === 'refresh') {
       if (!opts.matrix || !/^matrix-[a-zA-Z0-9_.-]+$/.test(opts.matrix)) throw new Error('Provide a matrix ID.');
-      previousPath = inside(matricesRoot, opts.matrix);
+      previousPath = await resultLocation(resultsRoot, `matrices/${opts.matrix}`);
       previous = JSON.parse(await readFile(join(previousPath, 'plan.json'), 'utf8'));
       opts.models ??= previous.models.map(model => model.id).join(',');
       opts.patterns ??= previous.coverage.map(item => item.pattern).join(',');
@@ -475,10 +507,13 @@ async function main() {
     const checks = await preflight(config);
     const catalog = commonCatalog(checks.variants.good.inventory.models, checks.variants.bad.inventory.models);
     const requested = opts.models?.split(',');
+    if (requested?.includes('hydrafusion')) {
+      if (config.enableHydrafusion !== true) throw new Error('HydraFusion planning requires enableHydrafusion: true.');
+      catalog.push({ id: 'hydrafusion', name: 'Ensemble / HydraFusion', experimentalHydrafusion: true });
+    }
     if (requested?.some(id => !catalog.some(model => model.id === id))) throw new Error('Requested model not available in both catalogs.');
     const models = requested ? requested.map(id => catalog.find(model => model.id === id)) : catalog;
-    const id = `matrix-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
-    const path = join(matricesRoot, id);
+    const { id, path } = await reserveDirectory(matricesRoot, 'matrix');
     const plan = await planMatrix(root, config, models, { id, trials: Number(opts.trials ?? 5),
       patterns: opts.patterns?.split(','), contexts: opts.contexts?.split(','), seed: opts.seed ?? randomUUID() });
     plan.imageId = checks.imageId;
@@ -499,7 +534,7 @@ async function main() {
   }
   if (!['run', 'report', 'monitor'].includes(action)) throw new Error(`Unknown matrix command: ${action}`);
   if (!opts.matrix || !/^matrix-[a-zA-Z0-9_.-]+$/.test(opts.matrix)) throw new Error('Provide a matrix ID.');
-  const path = inside(matricesRoot, opts.matrix);
+  const path = await resultLocation(resultsRoot, `matrices/${opts.matrix}`);
   const plan = JSON.parse(await readFile(join(path, 'plan.json'), 'utf8'));
   const state = JSON.parse(await readFile(join(path, 'state.json'), 'utf8'));
   applyCheckpoint(plan, state);
