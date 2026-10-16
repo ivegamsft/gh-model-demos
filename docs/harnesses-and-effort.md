@@ -140,6 +140,30 @@ Use labeled cold/warm cache conditions, record actual cache usage, and repeat tr
 | Wall-clock time and human intervention | Distinguish token efficiency from end-to-end productivity. |
 | Limit reached, blocker, or incomplete result | Prevent bounded failure from being reported as success. |
 
+### Capturing Copilot CLI `/usage`
+
+In an interactive Copilot CLI session, `/usage` reports the session's AI credits
+used, an input/output/cached-token breakdown, and progress against applicable
+usage limits. On the legacy billing platform, it reports premium requests instead.
+Capture the actual output with the run evidence; the display depends on the
+billing platform and CLI version.
+
+Record these fields from the output (this is a normalized template, not a
+verbatim screen capture):
+
+```text
+Session usage: <AI credits used, or legacy premium requests>
+Tokens: input <count>; output <count>; cached <count>
+Usage limit: <used / limit, when shown>
+```
+
+Use one comparable workload condition per session when attributing usage to a
+run. Keep the CLI version and billing platform with the record. AI credits and
+premium requests are not provider-dollar charges, and token totals alone do not
+determine an invoice. For non-interactive runs, `--usage-output-file <file>`
+saves final usage statistics as JSON; preserve that file with the run artifacts
+and treat missing metrics as unknown, not zero.
+
 For a fixed suite:
 
 ```text
@@ -173,5 +197,5 @@ If there are zero accepted completions, report zero completions and total spend;
 6. [GitHub changelog: Larger context and configurable reasoning](https://github.blog/changelog/2026-06-04-larger-context-windows-and-configurable-reasoning-levels-for-github-copilot/)
 7. [Anthropic: Effort](https://platform.claude.com/docs/en/build-with-claude/effort)
 8. [Anthropic: Manage Claude Code costs](https://code.claude.com/docs/en/costs)
-9. Copilot CLI built-in help, consulted October 15, 2026: `/context`, `/usage`, `/compact`, `/new`, `/limits`, and `/subagents`. Commands and availability can vary by CLI version.
+9. Copilot CLI built-in help (`copilot help billing`, `copilot --help`), consulted October 15–16, 2026: `/context`, `/usage`, `/compact`, `/new`, `/limits`, `/subagents`, and `--usage-output-file`. Commands and availability can vary by CLI version.
 10. [GitHub: Copilot on GitHub.com and cloud agent](https://docs.github.com/en/copilot/concepts/agents/cloud-agent/about-cloud-agent)

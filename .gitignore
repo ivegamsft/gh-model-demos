@@ -30,6 +30,24 @@ results/
 node_modules/
 .build-packages/
 
+# Harness/runtime noise outside results/. Do not ignore *.log globally:
+# fixtures/**/*.log are committed test inputs.
+*.tmp
+runner.lock
+coverage/
+.nyc_output/
+npm-debug.log*
+*.tgz
+
+# Copilot CLI local exports (--share transcripts, --usage-output-file JSON).
+copilot-session-*.md
+copilot-usage*.json
+
+# OS and editor clutter.
+.DS_Store
+Thumbs.db
+desktop.ini
+
 # Local previews and Python bytecode.
 .playwright-mcp/
 __pycache__/

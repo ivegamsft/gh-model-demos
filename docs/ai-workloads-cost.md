@@ -234,6 +234,7 @@ Use the [prompt library](../prompts/README.md) and record, per run:
 | Research | Agents spawned, rounds, duplicate sources | Shows over-spawning and convergence |
 | Agentic (headless) | Steps, tool-result tokens, cap reached, blocked vs false success | Shows runaway loops and silent failure |
 | Orchestration | Tokens split between orchestrator and workers; conflicts; single-agent baseline | Shows whether delegation paid for itself |
+| Copilot CLI session | `/usage` AI credits, input/output/cached tokens, and applicable limit progress | Adds session-level usage evidence; it is not a provider invoice |
 
 Always compare orchestration and research fan-out against a **single-agent baseline on the same task**. Without a baseline, you cannot tell whether the extra tokens bought anything.
 
