@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" width="960" height="560" role="img" aria-labelledby="prompt-cache-layers-title prompt-cache-layers-desc">
+<title id="prompt-cache-layers-title">Order context from stable to volatile</title>
+<desc id="prompt-cache-layers-desc">Five context layers ordered from most stable to most volatile; the first four form a reusable cached prefix and the new turn is not reused.</desc>
+<defs>
+<marker id="prompt-cache-layers-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#59636e"/></marker>
+<marker id="prompt-cache-layers-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bc4c00"/></marker>
+<marker id="prompt-cache-layers-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0969da"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#f6f8fa"/>
+<text x="40" y="44" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">LAYER STACK · PROMPT CACHING</text>
+<text x="40" y="76" fill="#1f2328" font-size="28" font-family="Georgia, 'Times New Roman', serif" letter-spacing="-0.01em">Order context from stable to volatile</text>
+<rect x="200" y="112" width="560" height="64" fill="#ffffff" stroke="rgba(31,35,40,0.15)" stroke-width="1"/>
+<text x="216" y="148" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">L1</text>
+<text x="256" y="150" fill="#1f2328" font-size="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Tool definitions</text>
+<text x="744" y="149" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">consistent schemas and order</text>
+<rect x="200" y="176" width="560" height="64" fill="#eff2f5" stroke="rgba(31,35,40,0.15)" stroke-width="1"/>
+<text x="216" y="212" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">L2</text>
+<text x="256" y="214" fill="#1f2328" font-size="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">System / developer instructions</text>
+<text x="744" y="213" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">same text every request</text>
+<rect x="200" y="240" width="560" height="64" fill="#ffffff" stroke="rgba(31,35,40,0.15)" stroke-width="1"/>
+<text x="216" y="276" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">L3</text>
+<text x="256" y="278" fill="#1f2328" font-size="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Fixed reference material</text>
+<text x="744" y="277" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">only if genuinely reused</text>
+<rect x="200" y="304" width="560" height="64" fill="#eff2f5" stroke="rgba(31,35,40,0.15)" stroke-width="1"/>
+<text x="216" y="340" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">L4</text>
+<text x="256" y="342" fill="#1f2328" font-size="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Conversation history</text>
+<text x="744" y="341" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">append-only, original order</text>
+<rect x="200" y="368" width="560" height="64" fill="rgba(188,76,0,0.08)" stroke="#bc4c00" stroke-width="1"/>
+<text x="216" y="404" fill="#bc4c00" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">L5</text>
+<text x="256" y="406" fill="#1f2328" font-size="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">New turn</text>
+<text x="744" y="405" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">user request · retrieval · timestamps</text>
+<rect x="200" y="112" width="560" height="256" fill="none" stroke="#59636e" stroke-width="1"/>
+<line x1="168" y1="128" x2="168" y2="416" stroke="#59636e" stroke-width="1.2" marker-end="url(#prompt-cache-layers-arrow)"/>
+<text x="156" y="124" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end" letter-spacing="0.16em">STABLE</text>
+<text x="156" y="424" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end" letter-spacing="0.16em">VOLATILE</text>
+<path d="M 776 116 L 784 116 L 784 364 L 776 364" fill="none" stroke="#59636e" stroke-width="1"/>
+<text x="796" y="238" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">CACHEABLE PREFIX</text>
+<text x="796" y="252" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">read at the cache rate</text>
+<text x="796" y="404" fill="#bc4c00" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">NOT REUSED</text>
+<text x="200" y="468" fill="#1f2328" font-size="14" font-family="Georgia, 'Times New Roman', serif" font-style="italic">The cache matches an exact prefix. A timestamp in L2 breaks reuse for L2 through L4.</text>
+<line x1="40" y1="504" x2="920" y2="504" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="40" y="520" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">LEGEND</text>
+<rect x="40" y="532" width="24" height="12" fill="rgba(188,76,0,0.08)" rx="2" stroke="#bc4c00" stroke-width="1"/>
+<text x="72" y="542" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Changes every request</text>
+<rect x="212" y="532" width="24" height="12" fill="#ffffff" rx="2" stroke="#1f2328" stroke-width="1"/>
+<text x="244" y="542" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Reusable layer</text>
+<text x="920" y="542" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" text-anchor="end" font-style="italic">Stability hierarchy, not a reason to mislabel message roles.</text>
+</svg>

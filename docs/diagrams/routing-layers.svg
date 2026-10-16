@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 576" width="960" height="576" role="img" aria-labelledby="routing-layers-title routing-layers-desc">
+<title id="routing-layers-title">Five different things called routing</title>
+<desc id="routing-layers-desc">Five routing layers from manual model selection to post-answer escalation; only the last one inspects an answer before deciding.</desc>
+<defs>
+<marker id="routing-layers-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#59636e"/></marker>
+<marker id="routing-layers-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bc4c00"/></marker>
+<marker id="routing-layers-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0969da"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#f6f8fa"/>
+<text x="40" y="44" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">LAYER STACK · MODEL ROUTING</text>
+<text x="40" y="76" fill="#1f2328" font-size="28" font-family="Georgia, 'Times New Roman', serif" letter-spacing="-0.01em">Five different things called routing</text>
+<rect x="200" y="112" width="680" height="64" fill="#ffffff" stroke="rgba(31,35,40,0.15)" stroke-width="1"/>
+<text x="216" y="148" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">01</text>
+<text x="256" y="140" fill="#1f2328" font-size="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Manual selection</text>
+<text x="256" y="158" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">a person picks the model</text>
+<text x="864" y="149" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">small model for extraction</text>
+<rect x="200" y="176" width="680" height="64" fill="#eff2f5" stroke="rgba(31,35,40,0.15)" stroke-width="1"/>
+<text x="216" y="212" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">02</text>
+<text x="256" y="204" fill="#1f2328" font-size="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Application-defined routing</text>
+<text x="256" y="222" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">your rules or classifier</text>
+<text x="864" y="213" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">task contract → model tier</text>
+<rect x="200" y="240" width="680" height="64" fill="#ffffff" stroke="rgba(31,35,40,0.15)" stroke-width="1"/>
+<text x="216" y="276" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">03</text>
+<text x="256" y="268" fill="#1f2328" font-size="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Semantic model routing</text>
+<text x="256" y="286" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">learned router, before generation</text>
+<text x="864" y="277" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">RouteLLM · OpenRouter Auto · Foundry</text>
+<rect x="200" y="304" width="680" height="64" fill="#eff2f5" stroke="rgba(31,35,40,0.15)" stroke-width="1"/>
+<text x="216" y="340" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">04</text>
+<text x="256" y="332" fill="#1f2328" font-size="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Provider / deployment routing</text>
+<text x="256" y="350" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">same model, different host</text>
+<text x="864" y="341" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">LiteLLM · OpenRouter providers</text>
+<rect x="200" y="368" width="680" height="64" fill="rgba(188,76,0,0.08)" stroke="#bc4c00" stroke-width="1"/>
+<text x="216" y="404" fill="#bc4c00" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600" letter-spacing="0.16em">05</text>
+<text x="256" y="396" fill="#1f2328" font-size="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Post-answer escalation</text>
+<text x="256" y="414" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">checks the answer, then escalates</text>
+<text x="864" y="405" fill="#1f2328" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">cascade with a test gate</text>
+<line x1="168" y1="128" x2="168" y2="416" stroke="#59636e" stroke-width="1.2" marker-end="url(#routing-layers-arrow)"/>
+<text x="156" y="124" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end" letter-spacing="0.16em">BEFORE</text>
+<text x="156" y="136" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end" letter-spacing="0.16em">ANSWER</text>
+<text x="156" y="412" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end" letter-spacing="0.16em">AFTER</text>
+<text x="156" y="424" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end" letter-spacing="0.16em">ANSWER</text>
+<text x="200" y="468" fill="#1f2328" font-size="14" font-family="Georgia, 'Times New Roman', serif" font-style="italic">Only layer 05 sees an answer. A timeout fallback is not a quality gate.</text>
+<line x1="40" y1="520" x2="920" y2="520" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="40" y="536" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">LEGEND</text>
+<rect x="40" y="548" width="24" height="12" fill="rgba(188,76,0,0.08)" rx="2" stroke="#bc4c00" stroke-width="1"/>
+<text x="72" y="558" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Decides after an answer</text>
+<rect x="220" y="548" width="24" height="12" fill="#ffffff" rx="2" stroke="#1f2328" stroke-width="1"/>
+<text x="252" y="558" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Decides before an answer</text>
+<text x="920" y="558" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" text-anchor="end" font-style="italic">Products can combine layers.</text>
+</svg>

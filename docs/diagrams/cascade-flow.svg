@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" width="960" height="600" role="img" aria-labelledby="cascade-flow-title cascade-flow-desc">
+<title id="cascade-flow-title">Cascade: cheap first, escalate on failure</title>
+<desc id="cascade-flow-desc">A cheap model answers first; a deterministic gate accepts the answer or escalates to a strong model, with the break-even condition for cost.</desc>
+<defs>
+<marker id="cascade-flow-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#59636e"/></marker>
+<marker id="cascade-flow-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bc4c00"/></marker>
+<marker id="cascade-flow-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0969da"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#f6f8fa"/>
+<text x="40" y="44" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">FLOWCHART · EXECUTION SHAPE</text>
+<text x="40" y="76" fill="#1f2328" font-size="28" font-family="Georgia, 'Times New Roman', serif" letter-spacing="-0.01em">Cascade: cheap first, escalate on failure</text>
+<path d="M 400 160 L 400 192" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#cascade-flow-arrow)"/>
+<path d="M 400 240 L 400 264" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#cascade-flow-arrow)"/>
+<path d="M 500 312 L 600 312" fill="none" stroke="#bc4c00" stroke-width="1.4" marker-end="url(#cascade-flow-arrow-accent)"/>
+<path d="M 400 360 L 400 400" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#cascade-flow-arrow)"/>
+<path d="M 480 424 L 672 424 Q 680 424 680 416 L 680 336" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#cascade-flow-arrow)"/>
+<rect x="534.0" y="290" width="32" height="12" fill="#f6f8fa" rx="2"/>
+<text x="550" y="299" fill="#bc4c00" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle" letter-spacing="0.08em">YES</text>
+<rect x="416.0" y="374" width="24" height="12" fill="#f6f8fa" rx="2"/>
+<text x="428" y="383" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle" letter-spacing="0.08em">NO</text>
+<rect x="320" y="112" width="160" height="48" fill="#f6f8fa" rx="20"/>
+<rect x="320" y="112" width="160" height="48" fill="rgba(31,35,40,0.03)" rx="20" stroke="rgba(31,35,40,0.40)" stroke-width="1"/>
+<text x="400.0" y="134.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Request</text>
+<text x="400.0" y="148.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">task + acceptance</text>
+<rect x="320" y="192" width="160" height="48" fill="#f6f8fa" rx="6"/>
+<rect x="320" y="192" width="160" height="48" fill="#ffffff" rx="6" stroke="#1f2328" stroke-width="1"/>
+<text x="400.0" y="214.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Cheap model answers</text>
+<text x="400.0" y="228.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">cost: cheap</text>
+<polygon points="400,264 500,312 400,360 300,312" fill="#f6f8fa"/>
+<polygon points="400,264 500,312 400,360 300,312" fill="#ffffff" stroke="#1f2328" stroke-width="1"/>
+<text x="400" y="310" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Gate passes?</text>
+<text x="400" y="324" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">tests · schema</text>
+<rect x="600" y="288" width="160" height="48" fill="#f6f8fa" rx="20"/>
+<rect x="600" y="288" width="160" height="48" fill="rgba(188,76,0,0.08)" rx="20" stroke="#bc4c00" stroke-width="1"/>
+<text x="680.0" y="316.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Accept</text>
+<rect x="320" y="400" width="160" height="48" fill="#f6f8fa" rx="6"/>
+<rect x="320" y="400" width="160" height="48" fill="#ffffff" rx="6" stroke="#1f2328" stroke-width="1"/>
+<text x="400.0" y="422.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Strong model answers</text>
+<text x="400.0" y="436.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">cost: strong</text>
+<text x="560" y="472" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">EXPECTED COST</text>
+<text x="560" y="488" fill="#1f2328" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">cheap + gate + P(escalate) × strong</text>
+<text x="560" y="508" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">BEATS ALWAYS-STRONG ONLY IF</text>
+<text x="560" y="524" fill="#1f2328" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">P(escalate) &lt; 1 − cheap / strong</text>
+<text x="40" y="488" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">Example: cheap = 0.10, P = 0.40 → 0.50 of strong, plus the gate.</text>
+<text x="40" y="516" fill="#1f2328" font-size="14" font-family="Georgia, 'Times New Roman', serif" font-style="italic">A model-based gate is another call.</text>
+<line x1="40" y1="544" x2="920" y2="544" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="40" y="560" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">LEGEND</text>
+<rect x="40" y="572" width="24" height="12" fill="rgba(31,35,40,0.03)" rx="6" stroke="rgba(31,35,40,0.40)" stroke-width="1"/>
+<text x="72" y="582" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Start / end</text>
+<rect x="160" y="572" width="24" height="12" fill="#ffffff" rx="2" stroke="#1f2328" stroke-width="1"/>
+<text x="192" y="582" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Model call</text>
+<polygon points="272,578 284,572 296,578 284,584" fill="#ffffff" stroke="#1f2328" stroke-width="1"/>
+<text x="304" y="582" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Gate</text>
+<line x1="356" y1="578" x2="380" y2="578" stroke="#bc4c00" stroke-width="1.4" marker-end="url(#cascade-flow-arrow-accent)"/>
+<text x="388" y="582" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Cheap path</text>
+<text x="920" y="582" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" text-anchor="end" font-style="italic">Gate quality decides both savings and quality.</text>
+</svg>

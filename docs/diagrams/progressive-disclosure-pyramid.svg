@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" width="960" height="520" role="img" aria-labelledby="progressive-disclosure-pyramid-title progressive-disclosure-pyramid-desc">
+<title id="progressive-disclosure-pyramid-title">Progressive disclosure: pay only for what loads</title>
+<desc id="progressive-disclosure-pyramid-desc">Skill content loads in tiers: metadata for every skill at startup, the body on activation, references when read, and only script output when scripts run.</desc>
+<defs>
+<marker id="progressive-disclosure-pyramid-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#59636e"/></marker>
+<marker id="progressive-disclosure-pyramid-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bc4c00"/></marker>
+<marker id="progressive-disclosure-pyramid-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0969da"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#f6f8fa"/>
+<text x="40" y="44" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">PYRAMID · SKILLS</text>
+<text x="40" y="76" fill="#1f2328" font-size="28" font-family="Georgia, 'Times New Roman', serif" letter-spacing="-0.01em">Progressive disclosure: pay only for what loads</text>
+<polygon points="312.0,112 408.0,112 464.0,176 256.0,176" fill="rgba(188,76,0,0.08)" stroke="#bc4c00" stroke-width="1"/>
+<text x="360" y="149.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Scripts</text>
+<line x1="444.0" y1="144.0" x2="652" y2="144.0" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="2,3"/>
+<text x="664" y="142.0" fill="#bc4c00" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Run, not read</text>
+<text x="664" y="156.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">only stdout/stderr enters context</text>
+<polygon points="256.0,176 464.0,176 520.0,240 200.0,240" fill="#ffffff" stroke="#59636e" stroke-width="1"/>
+<text x="360" y="213.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">References</text>
+<line x1="500.0" y1="208.0" x2="652" y2="208.0" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="2,3"/>
+<text x="664" y="206.0" fill="#1f2328" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Loaded only when read</text>
+<text x="664" y="220.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">zero tokens until opened</text>
+<polygon points="200.0,240 520.0,240 576.0,304 144.0,304" fill="#eff2f5" stroke="#59636e" stroke-width="1"/>
+<text x="360" y="277.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">SKILL.md body</text>
+<line x1="556.0" y1="272.0" x2="652" y2="272.0" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="2,3"/>
+<text x="664" y="270.0" fill="#1f2328" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Loaded on activation</text>
+<text x="664" y="284.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">then replayed on later turns</text>
+<polygon points="144.0,304 576.0,304 632.0,368 88.0,368" fill="#ffffff" stroke="#59636e" stroke-width="1"/>
+<text x="360" y="341.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Name + description</text>
+<line x1="612.0" y1="336.0" x2="652" y2="336.0" stroke="#d1d9e0" stroke-width="1" stroke-dasharray="2,3"/>
+<text x="664" y="334.0" fill="#1f2328" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">Loaded at session start</text>
+<text x="664" y="348.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">~100 tokens per skill, every skill</text>
+<line x1="72" y1="360" x2="72" y2="120" stroke="#59636e" stroke-width="1.2" marker-end="url(#progressive-disclosure-pyramid-arrow)"/>
+<text x="40" y="108" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">RARELY</text>
+<text x="40" y="384" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">ALWAYS</text>
+<text x="40" y="420" fill="#1f2328" font-size="14" font-family="Georgia, 'Times New Roman', serif" font-style="italic">Keep the base small and specific; push detail up the pyramid.</text>
+<text x="40" y="444" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">Sources: Agent Skills specification; Anthropic skill docs. Copilot placement is implementation-specific: inspect with /context.</text>
+<line x1="40" y1="464" x2="920" y2="464" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="40" y="480" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">LEGEND</text>
+<rect x="40" y="492" width="24" height="12" fill="rgba(188,76,0,0.08)" rx="2" stroke="#bc4c00" stroke-width="1"/>
+<text x="72" y="502" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Code never enters context</text>
+<rect x="232" y="492" width="24" height="12" fill="#ffffff" rx="2" stroke="#1f2328" stroke-width="1"/>
+<text x="264" y="502" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Loaded tier</text>
+</svg>

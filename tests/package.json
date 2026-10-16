@@ -1,0 +1,18 @@
+{
+  "name": "model-usage-experiments",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test harness.test.mjs",
+    "preflight": "node harness.mjs preflight",
+    "build": "node harness.mjs build",
+    "login": "node harness.mjs login",
+    "experiment": "node harness.mjs run",
+    "monitor": "node harness.mjs monitor",
+    "report": "node harness.mjs report"
+  },
+  "dependencies": {
+    "yaml": "2.9.1"
+  }
+}

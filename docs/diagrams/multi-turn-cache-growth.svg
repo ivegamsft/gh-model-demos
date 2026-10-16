@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 576" width="960" height="576" role="img" aria-labelledby="multi-turn-cache-growth-title multi-turn-cache-growth-desc">
+<title id="multi-turn-cache-growth-title">Multi-turn input grows quadratically</title>
+<desc id="multi-turn-cache-growth-desc">Cumulative input cost over 20 turns: about 580,000 ordinary-token equivalents without caching versus about 113,000 with a warm cache.</desc>
+<defs>
+<marker id="multi-turn-cache-growth-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#59636e"/></marker>
+<marker id="multi-turn-cache-growth-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bc4c00"/></marker>
+<marker id="multi-turn-cache-growth-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0969da"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#f6f8fa"/>
+<text x="40" y="44" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">LINE CHART · MULTI-TURN COST</text>
+<text x="40" y="76" fill="#1f2328" font-size="28" font-family="Georgia, 'Times New Roman', serif" letter-spacing="-0.01em">Multi-turn input grows quadratically</text>
+<line x1="120" y1="432.0" x2="880" y2="432.0" stroke="#d1d9e0" stroke-width="1"/>
+<text x="108" y="435.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">0k</text>
+<line x1="120" y1="381.3" x2="880" y2="381.3" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="108" y="384.3" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">100k</text>
+<line x1="120" y1="330.7" x2="880" y2="330.7" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="108" y="333.7" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">200k</text>
+<line x1="120" y1="280.0" x2="880" y2="280.0" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="108" y="283.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">300k</text>
+<line x1="120" y1="229.3" x2="880" y2="229.3" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="108" y="232.3" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">400k</text>
+<line x1="120" y1="178.7" x2="880" y2="178.7" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="108" y="181.7" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">500k</text>
+<line x1="120" y1="128.0" x2="880" y2="128.0" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="108" y="131.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end">600k</text>
+<text x="120.0" y="448" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">1</text>
+<text x="280.0" y="448" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">5</text>
+<text x="480.0" y="448" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">10</text>
+<text x="680.0" y="448" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">15</text>
+<text x="880.0" y="448" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">20</text>
+<text x="80" y="112" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">CUMULATIVE INPUT, ORDINARY-TOKEN EQUIVALENTS</text>
+<text x="880" y="464" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="end" letter-spacing="0.16em">USER TURN →</text>
+<polyline points="120.0,426.9 160.0,420.9 200.0,413.8 240.0,405.7 280.0,396.5 320.0,386.4 360.0,375.3 400.0,363.1 440.0,349.9 480.0,335.7 520.0,320.5 560.0,304.3 600.0,287.1 640.0,268.9 680.0,249.6 720.0,229.3 760.0,208.1 800.0,185.8 840.0,162.5 880.0,138.1" fill="none" stroke="#59636e" stroke-width="1.6" stroke-linejoin="round"/>
+<circle cx="880.0" cy="138.1" r="3.5" fill="#59636e"/>
+<polyline points="120.0,425.7 160.0,423.9 200.0,422.0 240.0,420.0 280.0,418.0 320.0,415.8 360.0,413.5 400.0,411.1 440.0,408.6 480.0,406.1 520.0,403.4 560.0,400.6 600.0,397.7 640.0,394.7 680.0,391.6 720.0,388.4 760.0,385.1 800.0,381.7 840.0,378.2 880.0,374.6" fill="none" stroke="#bc4c00" stroke-width="2" stroke-linejoin="round"/>
+<circle cx="880.0" cy="374.6" r="3.5" fill="#bc4c00"/>
+<text x="888.0" y="142.1" fill="#1f2328" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">580k</text>
+<text x="888.0" y="378.6" fill="#bc4c00" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600">113k</text>
+<text x="552.0" y="292.3" fill="#59636e" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="end">No caching</text>
+<text x="560.0" y="388.6" fill="#bc4c00" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Warm cache every turn</text>
+<line x1="864.0" y1="146.1" x2="864.0" y2="366.6" stroke="#59636e" stroke-width="1" stroke-dasharray="3,3"/>
+<rect x="786.0" y="250" width="68" height="12" fill="#f6f8fa" rx="2"/>
+<text x="820.0" y="259" fill="#bc4c00" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle" letter-spacing="0.08em">ABOUT -80%</text>
+<text x="80" y="488" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">S = 10,000 stable prefix · h = 2,000 new tokens per turn · reads 0.1× · writes 1.25× · every turn inside cache lifetime · output excluded</text>
+<line x1="40" y1="520" x2="920" y2="520" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="40" y="536" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">LEGEND</text>
+<line x1="40" y1="554" x2="64" y2="554" stroke="#59636e" stroke-width="1.6"/>
+<text x="72" y="558" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">No caching</text>
+<line x1="152" y1="554" x2="176" y2="554" stroke="#bc4c00" stroke-width="2"/>
+<text x="184" y="558" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Warm cache</text>
+<text x="920" y="558" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" text-anchor="end" font-style="italic">Caching cuts the slope; only compaction or a fresh session resets growth.</text>
+</svg>

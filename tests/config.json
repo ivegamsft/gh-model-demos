@@ -1,0 +1,24 @@
+{
+  "image": "gh-model-experiments:1",
+  "authVolumes": {
+    "good": "gh-model-experiments-good-auth",
+    "bad": "gh-model-experiments-bad-auth"
+  },
+  "modelClasses": {
+    "light": "gpt-5-mini",
+    "mid": "gpt-5-mini",
+    "strong": "gpt-5-mini"
+  },
+  "toolProfiles": {
+    "none": [],
+    "read-only": ["view", "glob", "grep"],
+    "web": ["web_search", "web_fetch"],
+    "default": null
+  },
+  "maxPlannedAiCredits": 20,
+  "trials": 1,
+  "cpus": 2,
+  "memory": "2g",
+  "pidsLimit": 256,
+  "cacheCondition": "unknown"
+}

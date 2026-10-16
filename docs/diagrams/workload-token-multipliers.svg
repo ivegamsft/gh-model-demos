@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" width="960" height="400" role="img" aria-labelledby="workload-token-multipliers-title workload-token-multipliers-desc">
+<title id="workload-token-multipliers-title">Agents multiply token use</title>
+<desc id="workload-token-multipliers-desc">Anthropic reported agents using about 4 times and multi-agent systems about 15 times the tokens of chat interactions.</desc>
+<defs>
+<marker id="workload-token-multipliers-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#59636e"/></marker>
+<marker id="workload-token-multipliers-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bc4c00"/></marker>
+<marker id="workload-token-multipliers-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0969da"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#f6f8fa"/>
+<text x="40" y="44" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">BAR CHART · WORKLOAD SHAPE</text>
+<text x="40" y="76" fill="#1f2328" font-size="28" font-family="Georgia, 'Times New Roman', serif" letter-spacing="-0.01em">Agents multiply token use</text>
+<line x1="240" y1="112" x2="240" y2="272" stroke="#d1d9e0" stroke-width="1"/>
+<text x="224" y="140" fill="#1f2328" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="end">Chat interaction</text>
+<rect x="240" y="120" width="40" height="32" fill="#ffffff" rx="2" stroke="#1f2328" stroke-width="1"/>
+<text x="292" y="140" fill="#59636e" font-size="11" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">1× baseline</text>
+<text x="224" y="196" fill="#1f2328" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="end">Single agent</text>
+<rect x="240" y="176" width="160" height="32" fill="#ffffff" rx="2" stroke="#1f2328" stroke-width="1"/>
+<text x="412" y="196" fill="#59636e" font-size="11" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">≈ 4×</text>
+<text x="224" y="252" fill="#1f2328" font-size="11" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="end">Multi-agent system</text>
+<rect x="240" y="232" width="600" height="32" fill="rgba(188,76,0,0.08)" rx="2" stroke="#bc4c00" stroke-width="1"/>
+<text x="852" y="252" fill="#bc4c00" font-size="11" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-weight="600">≈ 15×</text>
+<text x="40" y="316" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">Source: Anthropic, “How we built our multi-agent research system”. Their systems and workloads; not universal multipliers.</text>
+<line x1="40" y1="344" x2="920" y2="344" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="40" y="360" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">LEGEND</text>
+<rect x="40" y="372" width="24" height="12" fill="rgba(188,76,0,0.08)" rx="2" stroke="#bc4c00" stroke-width="1"/>
+<text x="72" y="382" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Orchestration / research fan-out</text>
+<rect x="268" y="372" width="24" height="12" fill="#ffffff" rx="2" stroke="#1f2328" stroke-width="1"/>
+<text x="300" y="382" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Other workload</text>
+<text x="920" y="382" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" text-anchor="end" font-style="italic">Cost scales with calls × context, not with one call&#x27;s price.</text>
+</svg>

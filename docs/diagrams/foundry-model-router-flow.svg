@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" width="960" height="720" role="img" aria-labelledby="foundry-model-router-flow-title foundry-model-router-flow-desc">
+<title id="foundry-model-router-flow-title">Foundry Model Router: one request</title>
+<desc id="foundry-model-router-flow-desc">A request to the model-router deployment is filtered to the eligible subset, optionally uses session affinity, is routed by mode, served, and falls back within the subset on error.</desc>
+<defs>
+<marker id="foundry-model-router-flow-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#59636e"/></marker>
+<marker id="foundry-model-router-flow-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bc4c00"/></marker>
+<marker id="foundry-model-router-flow-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#0969da"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#f6f8fa"/>
+<text x="40" y="44" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">FLOWCHART · MICROSOFT FOUNDRY</text>
+<text x="40" y="76" fill="#1f2328" font-size="28" font-family="Georgia, 'Times New Roman', serif" letter-spacing="-0.01em">Foundry Model Router: one request</text>
+<path d="M 480 152 L 480 184" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#foundry-model-router-flow-arrow)"/>
+<path d="M 480 240 L 480 264" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#foundry-model-router-flow-arrow)"/>
+<path d="M 580 312 L 680 312" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#foundry-model-router-flow-arrow)"/>
+<path d="M 480 360 L 480 400" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#foundry-model-router-flow-arrow)"/>
+<path d="M 780 336 L 780 504 Q 780 512 772 512 L 580 512" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#foundry-model-router-flow-arrow)"/>
+<path d="M 480 448 L 480 488" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#foundry-model-router-flow-arrow)"/>
+<path d="M 380 512 L 280 512" fill="none" stroke="#59636e" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#foundry-model-router-flow-arrow)"/>
+<path d="M 480 536 L 480 576" fill="none" stroke="#59636e" stroke-width="1.2" marker-end="url(#foundry-model-router-flow-arrow)"/>
+<path d="M 180 536 L 180 592 Q 180 600 188 600 L 380 600" fill="none" stroke="#59636e" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#foundry-model-router-flow-arrow)"/>
+<rect x="614.0" y="290" width="32" height="12" fill="#f6f8fa" rx="2"/>
+<text x="630" y="299" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle" letter-spacing="0.08em">YES</text>
+<rect x="496.0" y="374" width="80" height="12" fill="#f6f8fa" rx="2"/>
+<text x="536" y="383" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle" letter-spacing="0.08em">NO · DEFAULT</text>
+<rect x="300.0" y="490" width="60" height="12" fill="#f6f8fa" rx="2"/>
+<text x="330" y="499" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle" letter-spacing="0.08em">ON ERROR</text>
+<rect x="380" y="104" width="200" height="48" fill="#f6f8fa" rx="20"/>
+<rect x="380" y="104" width="200" height="48" fill="rgba(31,35,40,0.03)" rx="20" stroke="rgba(31,35,40,0.40)" stroke-width="1"/>
+<text x="480.0" y="126.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Request</text>
+<text x="480.0" y="140.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">Chat Completions / Responses</text>
+<rect x="380" y="184" width="200" height="56" fill="#f6f8fa" rx="6"/>
+<rect x="380" y="184" width="200" height="56" fill="#ffffff" rx="6" stroke="#1f2328" stroke-width="1"/>
+<text x="480.0" y="210.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Eligible subset</text>
+<text x="480.0" y="224.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">allowlist · capability · region</text>
+<polygon points="480,264 580,312 480,360 380,312" fill="#f6f8fa"/>
+<polygon points="480,264 580,312 480,360 380,312" fill="#ffffff" stroke="#1f2328" stroke-width="1"/>
+<text x="480" y="310" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Affinity set?</text>
+<text x="480" y="324" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">preview · 30 min</text>
+<rect x="680" y="288" width="200" height="48" fill="#f6f8fa" rx="6"/>
+<rect x="680" y="288" width="200" height="48" fill="#ffffff" rx="6" stroke="#1f2328" stroke-width="1"/>
+<text x="780.0" y="310.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Associated model</text>
+<text x="780.0" y="324.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">tried first, best-effort</text>
+<rect x="380" y="400" width="200" height="48" fill="#f6f8fa" rx="6"/>
+<rect x="380" y="400" width="200" height="48" fill="rgba(188,76,0,0.08)" rx="6" stroke="#bc4c00" stroke-width="1"/>
+<text x="480.0" y="422.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Router picks model</text>
+<text x="480.0" y="436.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">Balanced · Cost · Quality</text>
+<rect x="380" y="488" width="200" height="48" fill="#f6f8fa" rx="6"/>
+<rect x="380" y="488" width="200" height="48" fill="#ffffff" rx="6" stroke="#1f2328" stroke-width="1"/>
+<text x="480.0" y="510.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Serving model</text>
+<text x="480.0" y="524.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">response.model</text>
+<rect x="80" y="488" width="200" height="48" fill="#f6f8fa" rx="6"/>
+<rect x="80" y="488" width="200" height="48" fill="rgba(31,35,40,0.02)" rx="6" stroke="rgba(31,35,40,0.45)" stroke-width="1" stroke-dasharray="4,3"/>
+<text x="180.0" y="510.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Fallback model</text>
+<text x="180.0" y="524.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">same subset, needs ≥ 2</text>
+<rect x="380" y="576" width="200" height="48" fill="#f6f8fa" rx="20"/>
+<rect x="380" y="576" width="200" height="48" fill="rgba(31,35,40,0.03)" rx="20" stroke="rgba(31,35,40,0.40)" stroke-width="1"/>
+<text x="480.0" y="598.0" fill="#1f2328" font-size="12" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-weight="600" text-anchor="middle">Response</text>
+<text x="480.0" y="612.0" fill="#59636e" font-size="9" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" text-anchor="middle">+ routing trace (preview)</text>
+<line x1="40" y1="664" x2="920" y2="664" stroke="rgba(31,35,40,0.15)" stroke-width="0.8"/>
+<text x="40" y="680" fill="#59636e" font-size="8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.16em">LEGEND</text>
+<rect x="40" y="692" width="24" height="12" fill="rgba(31,35,40,0.03)" rx="6" stroke="rgba(31,35,40,0.40)" stroke-width="1"/>
+<text x="72" y="702" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Start / end</text>
+<rect x="160" y="692" width="24" height="12" fill="#ffffff" rx="2" stroke="#1f2328" stroke-width="1"/>
+<text x="192" y="702" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Step</text>
+<polygon points="244,698 256,692 268,698 256,704" fill="#ffffff" stroke="#1f2328" stroke-width="1"/>
+<text x="276" y="702" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Decision</text>
+<rect x="348" y="692" width="24" height="12" fill="rgba(188,76,0,0.08)" rx="2" stroke="#bc4c00" stroke-width="1"/>
+<text x="380" y="702" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Trained ML router</text>
+<rect x="500" y="692" width="24" height="12" fill="rgba(31,35,40,0.02)" rx="2" stroke="rgba(31,35,40,0.45)" stroke-width="1" stroke-dasharray="4,3"/>
+<text x="532" y="702" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">Fallback</text>
+<text x="920" y="702" fill="#59636e" font-size="9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" text-anchor="end" font-style="italic">Selection is per request unless affinity applies.</text>
+</svg>
