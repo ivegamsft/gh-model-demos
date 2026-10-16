@@ -1,0 +1,5 @@
+2026-10-14T10:00:00.000Z mobile cart=cart-3 submit key=cart-3-mobile-1
+2026-10-14T10:00:00.010Z payment key=cart-3-mobile-1 committed order=order-1
+2026-10-14T10:00:30.000Z mobile cart=cart-3 response=PAYMENT_TIMEOUT
+2026-10-14T10:00:31.000Z mobile cart=cart-3 Retry key=cart-3-mobile-2
+2026-10-14T10:00:31.010Z payment key=cart-3-mobile-2 committed order=order-2

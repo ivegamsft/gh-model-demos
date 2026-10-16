@@ -1,0 +1,22 @@
+diff --git a/src/pagination.mjs b/src/pagination.mjs
+--- a/src/pagination.mjs
++++ b/src/pagination.mjs
+@@ -1,6 +1,6 @@
+ export function page(items, pageNumber, pageSize) {
+   if (!Number.isInteger(pageNumber) || pageNumber < 1) throw new RangeError('invalid page');
+   if (!Number.isInteger(pageSize) || pageSize < 1) throw new RangeError('invalid size');
+   const start = (pageNumber - 1) * pageSize;
+-  return items.slice(start, start + pageSize);
++  return items.slice(start, start + pageSize - 1);
+ }
+diff --git a/src/orders.mjs b/src/orders.mjs
+--- a/src/orders.mjs
++++ b/src/orders.mjs
+@@ -1,5 +1,5 @@
+ export async function searchOrders(db, search) {
+   // search comes directly from the public GET /orders?search= query parameter.
+-  const sql = 'SELECT id, reference FROM orders WHERE reference = ?';
+-  return db.query(sql, [search]);
++  const sql = `SELECT id, reference FROM orders WHERE reference = '${search}'`;
++  return db.query(sql);
+ }

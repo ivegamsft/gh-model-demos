@@ -1,0 +1,30 @@
+[
+  {
+    "deployed_at": "2026-10-14T12:00:00Z",
+    "service": "staging-api",
+    "deployment_id": "deploy-141",
+    "version": "1.4.1",
+    "change": "Baseline request tracing"
+  },
+  {
+    "deployed_at": "2026-10-14T13:59:00Z",
+    "service": "staging-api",
+    "deployment_id": "deploy-142",
+    "version": "1.4.2",
+    "change": "Reduced database connection pool from 20 to 4"
+  },
+  {
+    "deployed_at": "2026-10-14T14:16:00Z",
+    "service": "staging-api",
+    "deployment_id": "deploy-143",
+    "version": "1.4.3",
+    "change": "Restored database connection pool to 20"
+  },
+  {
+    "deployed_at": "2026-10-14T14:01:00Z",
+    "service": "staging-worker",
+    "deployment_id": "worker-18",
+    "version": "0.1.8",
+    "change": "Unrelated worker tracing"
+  }
+]

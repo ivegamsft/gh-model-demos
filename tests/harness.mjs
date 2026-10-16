@@ -1,9 +1,11 @@
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { access, cp, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { access, cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildPlan, comparison, hash, inside, positive } from './harness-lib.mjs';
+import { atomicJson as json, buildPlan, hash, inside, positive, previewLinks } from './harness-lib.mjs';
+import { parse } from 'yaml';
+import { renderReport } from './report.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = dirname(directory);
@@ -30,10 +32,10 @@ function options(args) {
   const parsed = {};
   for (let index = 0; index < args.length; index++) {
     const key = args[index];
-    if (!['--pattern', '--config', '--trials', '--budget', '--variant', '--run', '--dry-run', '--watch'].includes(key)) {
+    if (!['--pattern', '--config', '--trials', '--budget', '--variant', '--run', '--dry-run', '--watch', '--all'].includes(key)) {
       throw new Error(`Unknown argument: ${key}`);
     }
-    if (['--dry-run', '--watch'].includes(key)) parsed[key.slice(2)] = true;
+    if (['--dry-run', '--watch', '--all'].includes(key)) parsed[key.slice(2)] = true;
     else {
       if (!args[index + 1] || args[index + 1].startsWith('--')) throw new Error(`Missing value for ${key}`);
       parsed[key.slice(2)] = args[++index];
@@ -76,12 +78,6 @@ async function docker(args, opts) {
     throw new Error(`docker ${args[0]} failed (${result.timedOut ? 'timeout' : result.code}): ${result.stderr || result.stdout}`);
   }
   return result.stdout.trim();
-}
-
-async function json(path, value) {
-  const temporary = `${path}.${process.pid}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`);
-  await rename(temporary, path);
 }
 
 async function prepareBuild() {
@@ -174,9 +170,15 @@ async function engineAndImage(config) {
   return JSON.parse(await docker(['image', 'inspect', config.image]))[0];
 }
 
-async function preflight(config) {
+async function pinImage(reference, id) {
+  const pin = `gh-model-experiment-pins:image-${id.replace(/^sha256:/, '')}`;
+  await docker(['tag', reference, pin]);
+  return pin;
+}
+
+export async function preflight(config) {
   const image = await engineAndImage(config);
-  const checks = { imageId: image.Id, variants: {} };
+  const checks = { imageId: image.Id, pinnedImage: await pinImage(config.image, image.Id), variants: {} };
   for (const variant of ['good', 'bad']) {
     const name = `model-preflight-${variant}-${randomUUID().slice(0, 8)}`;
     let created = false;
@@ -191,6 +193,12 @@ async function preflight(config) {
         passed: result.code === 0 && !result.timedOut && inspection.State.ExitCode === 0,
         output: result.stdout.trim(), error: result.stderr.trim(),
       };
+      if (checks.variants[variant].passed) {
+        const destination = join(resultsRoot, 'catalogs', variant);
+        await mkdir(destination, { recursive: true });
+        await docker(['cp', `${name}:/evidence/model-inventory.json`, join(destination, 'model-inventory.json')]);
+        checks.variants[variant].inventory = JSON.parse(await readFile(join(destination, 'model-inventory.json'), 'utf8'));
+      }
     } catch (error) {
       checks.variants[variant] = { passed: false, error: error.message };
     } finally {
@@ -201,10 +209,13 @@ async function preflight(config) {
   const path = join(resultsRoot, 'container-preflight.json');
   await mkdir(resultsRoot, { recursive: true });
   await json(path, checks);
-  console.log(JSON.stringify(checks, null, 2));
+  console.log(JSON.stringify({ imageId: checks.imageId, variants: Object.fromEntries(
+    Object.entries(checks.variants).map(([variant, { inventory, ...check }]) =>
+      [variant, { ...check, models: inventory?.models.length }])) }, null, 2));
   if (Object.values(checks.variants).some(check => !check.passed)) {
     throw new Error(`Container preflight failed. Authenticate both variants with the login command. Evidence: ${path}`);
   }
+  return checks;
 }
 
 async function collect(name, destination) {
@@ -214,7 +225,7 @@ async function collect(name, destination) {
 }
 
 async function executePair(config, plan, runPath, trial, repetition, manifest, writeStatus) {
-  const order = (trial + repetition) % 2 === 0 ? ['good', 'bad'] : ['bad', 'good'];
+  const order = (trial + repetition + (config.orderOffset ?? 0)) % 2 === 0 ? ['good', 'bad'] : ['bad', 'good'];
   const containers = [];
   let failed = false;
   try {
@@ -299,7 +310,7 @@ async function executePair(config, plan, runPath, trial, repetition, manifest, w
   return failed;
 }
 
-async function resultPaths(path) {
+export async function resultPaths(path) {
   const found = [];
   for (const entry of await readdir(path, { withFileTypes: true })) {
     if (entry.name === 'snapshot') continue;
@@ -310,10 +321,26 @@ async function resultPaths(path) {
   return found.sort();
 }
 
-async function report(runPath) {
+export async function report(runPath) {
   const manifest = JSON.parse(await readFile(join(runPath, 'manifest.json'), 'utf8'));
+  const plan = JSON.parse(await readFile(join(runPath, 'resolved-plan.json'), 'utf8'));
+  // Historical plans omitted hypotheses. Recover them only from an exact source-hash match.
+  for (const [variant, value] of Object.entries(plan.variants)) {
+    if (value.expectations) continue;
+    let source;
+    try { source = await readFile(inside(root, join('prompts', manifest.pattern, `${variant}.prompt.md`)), 'utf8'); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; continue; }
+    if (hash(source) !== value.sourceHash) continue;
+    const header = /^---\r?\n([\s\S]*?)\r?\n---/.exec(source);
+    if (!header) throw new Error(`Invalid prompt frontmatter: ${manifest.pattern}/${variant}`);
+    const metadata = parse(header[1]);
+    value.expectations = {
+      processing: metadata.expected_processing ?? null, result: metadata.expected_result ?? null,
+      source: 'recovered from prompt with exact recorded SHA-256 match',
+    };
+  }
   const paths = await resultPaths(runPath);
-  const results = await Promise.all(paths.map(async path => {
+  const records = await Promise.all(paths.map(async path => {
     const result = JSON.parse(await readFile(path, 'utf8'));
     try {
       const review = JSON.parse(await readFile(join(dirname(path), 'review.json'), 'utf8'));
@@ -326,44 +353,89 @@ async function report(runPath) {
       result.acceptance = review.acceptance;
       result.reviewedBy = review.reviewer;
     } catch (error) { if (error.code !== 'ENOENT') throw error; }
-    return result;
+    const location = dirname(path);
+    const names = await readdir(location);
+    const link = name => relative(runPath, join(location, name)).replaceAll('\\', '/');
+    const labels = new Map([
+      ['output.md', 'Full response'], ['result.json', 'Result and metrics'],
+      ['events.jsonl', 'Model/tool events'], ['changes.patch', 'Workspace diff'],
+      ['container-state.json', 'Container exit state'], ['versions.json', 'CLI versions'],
+      ['review.json', 'Human review'], ['error.log', 'Worker error'],
+      ['fatal-error.log', 'Fatal error'], ['controller-stderr.log', 'Controller stderr'],
+      ['instruction-context.json', 'Staged instruction context'], ['instruction-sources.json', 'Discovered instruction sources'],
+      ['mock-observability.jsonl', 'Synthetic MCP queries and results'],
+    ]);
+    const artifacts = [];
+    for (const name of names.sort()) {
+      const label = labels.get(name) ??
+        (/^session-.*-input\.md$/.test(name) ? `Input: ${name}` :
+          /^session-\d+-subagents\.json$/.test(name) ? `Worker model configuration: ${name}` :
+          /^session-.*-(?:stderr|stdout)\.log$/.test(name) ? name : null);
+      if (label) artifacts.push({ label, link: link(name) });
+    }
+    const priority = label => label.startsWith('Input:') ? 0
+      : ['Full response', 'Result and metrics', 'Human review'].includes(label) ? 1 : 2;
+    artifacts.sort((a, b) => priority(a.label) - priority(b.label));
+    const output = names.includes('output.md') ? await readFile(join(location, 'output.md'), 'utf8') : null;
+    const diagnostics = names.filter(name =>
+      /^session-.*-stderr\.log$/.test(name) || ['fatal-error.log', 'error.log'].includes(name));
+    const diagnostic = result.status !== 'completed' ? (await Promise.all(diagnostics.map(async name =>
+      `${name}:\n${await readFile(join(location, name), 'utf8')}`))).join('\n\n') : null;
+    return { result, resultLink: link('result.json'), artifacts, output, diagnostic };
   }));
-  const summary = comparison(results);
+  let controllerError = null;
+  try { controllerError = await readFile(join(runPath, 'controller-error.log'), 'utf8'); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const rendered = renderReport({ manifest, plan, records, controllerError });
+  const { summary, complete } = rendered;
+  const results = records.map(record => record.result);
   const expected = manifest.config.trials * manifest.repetitions * 2;
-  const complete = results.length === expected && results.every(result => result.status === 'completed');
   await json(join(runPath, 'comparison.json'), {
     complete, expectedAttempts: expected, collectedAttempts: results.length, summary, results,
   });
-  const lines = [
-    `# Experiment: ${manifest.pattern}`, '',
-    `Run: ${manifest.runId}`, `Cache condition: ${manifest.config.cacheCondition}`,
-    `Execution: ${complete ? 'completed' : 'incomplete/failed'} (${results.length}/${expected} attempts collected)`,
-    '', '| Variant | Attempts | Accepted | Needs review | Total nano-AIU | nano-AIU / accepted | Elapsed ms |',
-    '|---|---:|---:|---:|---:|---:|---:|',
-    ...Object.entries(summary).map(([variant, value]) =>
-      `| ${variant} | ${value.attempts} | ${value.accepted} | ${value.needsReview} | ${value.totalNanoAiu ?? 'unknown'} | ${value.nanoAiuPerAcceptedCompletion ?? 'undefined/unknown'} | ${value.elapsedMs} |`),
-    '', 'Missing usage is unknown, not zero. No dollar or AI-credit conversion is assumed.',
-    'Failures remain in totals. No savings claim is valid without complete cost and acceptance evidence.',
-    '', '## Evidence', '',
-    ...paths.map(path => `- [${relative(runPath, path).replaceAll('\\', '/')}](${relative(runPath, path).replaceAll('\\', '/')})`),
-    '',
-  ];
-  await writeFile(join(runPath, 'report.md'), lines.join('\n'));
+  const reportPath = join(runPath, 'report.md');
+  await writeFile(reportPath, previewLinks(rendered.markdown, reportPath));
   console.log(`Report: ${join(runPath, 'report.md')}`);
-  return { complete, summary };
+  return { complete, summary, runId: manifest.runId, pattern: manifest.pattern,
+    execution: rendered.execution, verdict: rendered.verdict };
 }
 
-async function run(config, opts) {
-  const plan = await buildPlan(root, opts.pattern ?? 'one-shot', config);
+async function reportAll() {
+  const reports = [];
+  for (const entry of (await readdir(resultsRoot, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!entry.isDirectory()) continue;
+    const path = join(resultsRoot, entry.name);
+    try { await access(join(path, 'manifest.json')); }
+    catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+    reports.push(await report(path));
+  }
+  const cell = value => String(value).replaceAll('|', '\\|').replace(/[\r\n]+/g, ' ');
+  const lines = [
+    '# Experiment run index', '',
+    'Start with a run report for the task, hypotheses, actual responses, acceptance decisions, usage, and insights.',
+    'Dry runs validate configuration only. Execution failures are not prompt-quality findings. Repeated smoke tests are separate runs, not an aggregated controlled study.',
+    '', '| Run | Pattern | Execution | Quality verdict |', '|---|---|---|---|',
+    ...reports.map(report => `| [${report.runId}](${report.runId}/report.md) | ${cell(report.pattern)} | ${cell(report.execution)} | ${cell(report.verdict)} |`), '',
+  ];
+  const indexPath = join(resultsRoot, 'index.md');
+  await writeFile(indexPath, previewLinks(lines.join('\n'), indexPath));
+  console.log(`Run index: ${join(resultsRoot, 'index.md')}`);
+}
+
+export async function run(config, opts) {
+  const plan = opts.plan ?? await buildPlan(root, opts.pattern ?? 'one-shot', config);
   if (plan.variants.good.repetitions !== plan.variants.bad.repetitions) throw new Error('Paired repetitions must match.');
-  const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${plan.pattern}-${randomUUID().slice(0, 8)}`;
+  const runId = opts.runId ?? `${new Date().toISOString().replace(/[:.]/g, '-')}-${plan.pattern}-${randomUUID().slice(0, 8)}`;
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(runId)) throw new Error('Invalid run ID.');
   const runPath = join(resultsRoot, runId);
-  await mkdir(runPath, { recursive: true });
+  await mkdir(resultsRoot, { recursive: true });
+  await mkdir(runPath);
   const manifest = {
     runId, pattern: plan.pattern, createdAt: new Date().toISOString(), config,
     plannedAiCredits: plan.plannedAiCredits, repetitions: plan.variants.good.repetitions,
     promptHashes: Object.fromEntries(Object.entries(plan.variants).map(([variant, value]) => [variant, value.sourceHash])),
     fixtureHashes: plan.variants.good.fixtures, executionOrder: [], dryRun: Boolean(opts['dry-run']),
+    matrix: opts.matrix ?? null,
   };
   const writeStatus = async status => {
     await json(join(runPath, 'status.json'), { ...status, updatedAt: new Date().toISOString(), runId });
@@ -373,19 +445,20 @@ async function run(config, opts) {
   console.log(`Run: ${runId}\nPlanned session caps: ${plan.plannedAiCredits} AI credits (soft limits)\nEvidence: ${runPath}`);
   if (opts['dry-run']) {
     await writeStatus({ state: 'dry-run-passed', inferenceRequests: 0 });
-    return;
+    return { runId, runPath, failed: false };
   }
   let failed = false;
   try {
     await writeStatus({ state: 'preflight' });
     const image = await engineAndImage(config);
     manifest.imageId = image.Id;
+    manifest.pinnedImage = await pinImage(config.image, image.Id);
     manifest.repoDigests = image.RepoDigests;
     manifest.harnessHashes = Object.fromEntries(await Promise.all(
       ['harness.mjs', 'harness-lib.mjs', 'worker.mjs', 'Dockerfile', 'package-lock.json'].map(async name =>
         [name, hash(await readFile(join(directory, name)))])));
     const executionConfig = { ...config, image: image.Id };
-    await preflight(executionConfig);
+    if (!opts.preflightChecked) await preflight(executionConfig);
     if (interrupted) throw new Error('Experiment interrupted.');
     const snapshot = join(runPath, 'snapshot');
     await mkdir(snapshot, { recursive: true });
@@ -411,6 +484,7 @@ async function run(config, opts) {
     await report(runPath);
   }
   if (failed) process.exitCode = 1;
+  return { runId, runPath, failed };
 }
 
 async function monitor(runPath, watch) {
@@ -436,7 +510,7 @@ async function main() {
   const [action = 'help', ...args] = process.argv.slice(2);
   const opts = options(args);
   if (action === 'help') {
-    console.log('Commands: build | login [--variant good|bad] | preflight | run [--pattern one-shot] [--trials N] [--budget N] [--dry-run] | monitor --run ID [--watch] | report --run ID | review-template --run ID\nAll commands accept --config PATH. Login requires an interactive terminal.');
+    console.log('Commands: build | login [--variant good|bad] | preflight | run [--pattern one-shot] [--trials N] [--budget N] [--dry-run] | monitor --run ID [--watch] | report (--run ID | --all) | review-template --run ID\nAll commands accept --config PATH. Login requires an interactive terminal.');
     return;
   }
   const config = await loadConfig(opts);
@@ -468,6 +542,11 @@ async function main() {
   } else if (action === 'preflight') await preflight(config);
   else if (action === 'run') await run(config, opts);
   else if (['report', 'monitor', 'review-template'].includes(action)) {
+    if (opts.all) {
+      if (action !== 'report' || opts.run) throw new Error('--all is only valid for report, without --run.');
+      await reportAll();
+      return;
+    }
     if (!opts.run || !/^[a-zA-Z0-9_.-]+$/.test(opts.run) || opts.run.startsWith('.')) throw new Error('Provide a run ID using --run.');
     const path = inside(resultsRoot, opts.run);
     if (action === 'report') await report(path);
@@ -486,4 +565,9 @@ async function main() {
   } else throw new Error(`Unknown command: ${action}`);
 }
 
-main().catch(error => { console.error(error.stack ?? String(error)); process.exitCode = 1; });
+export const isInterrupted = () => interrupted;
+export { loadConfig };
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch(error => { console.error(error.stack ?? String(error)); process.exitCode = 1; });
+}

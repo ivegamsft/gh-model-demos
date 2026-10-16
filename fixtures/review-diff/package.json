@@ -1,0 +1,6 @@
+{
+  "name": "fixture-review-diff",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" }
+}

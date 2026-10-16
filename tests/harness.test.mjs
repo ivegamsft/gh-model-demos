@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { accepted, buildPlan, cliArgs, comparison, expandPrompt, finalOutput, fixtureFiles,
   grade, hash, inside, parsePrompt, resolveConfig, summarizeEvents, validateCatalog } from './harness-lib.mjs';
+import { outcome, renderReport } from './report.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const root = dirname(directory);
@@ -54,10 +55,16 @@ test('real inline pairs resolve and sum all planned session caps', async () => {
   assert.equal(plan.plannedAiCredits, 60);
   assert.equal(plan.variants.good.phases[0].model, 'gpt-5-mini');
   assert.deepEqual(plan.variants.good.phases[0].tools, []);
+  assert.match(plan.variants.good.expectations.processing, /Transforms the supplied text/);
+  assert.equal(plan.variants.good.expectations.source, 'captured prompt frontmatter');
   await assert.rejects(buildPlan(root, 'one-shot', { ...config, trials: 2 }), /total 120/);
   await assert.rejects(buildPlan(root, '../one-shot', config), /pattern/);
-  await assert.rejects(buildPlan(root, 'multi-tool', config), /Unsupported tool profile/);
-  await assert.rejects(buildPlan(root, 'orchestration', config), /dedicated runner/);
+  const unsupported = { ...config, toolProfiles: { none: [] } };
+  await assert.rejects(buildPlan(root, 'multi-tool', unsupported), /Unsupported tool profile/);
+  const research = resolveConfig(parsePrompt(await readFile(join(root, 'prompts', 'research-fan-out', 'good.prompt.md'), 'utf8'),
+    'research-fan-out', 'good'), config);
+  assert.equal(research[0].subagentModel, 'gpt-5-mini');
+  assert.equal(research[0].subagentMechanism, 'native-subagents');
 });
 
 test('fixture path checks reject escapes and undeclared substitutions', async () => {
@@ -217,6 +224,119 @@ test('controller rejects unknown commands and malformed CLI arguments before Doc
   assert.match(run(['run', '--budget', '0', '--dry-run']).stderr, /positive/);
 });
 
+test('reports explain task, expectations, actual outcomes, units, and cache confounds with evidence', async () => {
+  const plan = await buildPlan(root, 'structured-extraction', config);
+  const criteria = plan.variants.good.acceptance;
+  const manifest = {
+    runId: 'test-run', pattern: 'structured-extraction', config,
+    repetitions: 1, plannedAiCredits: 60, dryRun: false,
+  };
+  const result = (variant, output, nanoAiu, outputTokens, cacheReadTokens) => ({
+    variant, pattern: manifest.pattern, trial: 1, repetition: 1, status: 'completed',
+    acceptance: grade(manifest.pattern, output, criteria), elapsedMs: 11000,
+    metrics: { nanoAiu, costComplete: true, inputTokens: 12000, outputTokens, cacheReadTokens,
+      actualModels: ['gpt-5-mini'], modelCalls: 1, toolCalls: 0 },
+  });
+  const records = [
+    { result: result('good', JSON.stringify(invoice), 400000000, 200, 0),
+      output: JSON.stringify(invoice), resultLink: 'good/result.json',
+      artifacts: [{ label: 'Full response', link: 'good/output.md' }, { label: 'Input', link: 'good/input.md' }] },
+    { result: result('bad', 'Readable prose, not JSON.', 100000000, 400, 10000),
+      output: 'Readable prose, not JSON.', resultLink: 'bad/result.json',
+      artifacts: [{ label: 'Full response', link: 'bad/output.md' }] },
+  ];
+  const report = renderReport({ manifest, plan, records });
+  assert.equal(report.complete, true);
+  for (const heading of ['What did we test?', 'What did we expect?', 'What happened?', 'Insights and next steps']) {
+    assert.ok(report.markdown.includes(`## ${heading}`));
+  }
+  assert.match(report.markdown, /invoice INV-20931/);
+  assert.match(report.markdown, /Readable prose, not JSON/);
+  assert.match(report.markdown, /0\.4/);
+  assert.match(report.markdown, /AIU is not an AI credit or a dollar amount/);
+  assert.match(report.markdown, /Cache confound/);
+  assert.match(report.markdown, /Cheaper is not a saving/);
+  assert.match(report.markdown, /Expectation versus observation/);
+  assert.match(report.markdown, /repair\/reformat retry was not tested/);
+  assert.match(report.markdown, /Undefined: zero accepted/);
+  assert.match(report.markdown, /Not accepted/);
+  assert.match(report.markdown, /Output is not a bare JSON object/);
+  assert.match(report.markdown, /\[Full response\]\(bad\/output.md\)/);
+  assert.match(report.markdown, /not a statistically established/);
+  assert.equal(outcome(records[1].result), 'Not accepted');
+});
+
+test('reports distinguish dry runs, failures, missing hypotheses, and unresolved review', async () => {
+  const plan = await buildPlan(root, 'one-shot', config);
+  delete plan.variants.bad.expectations;
+  const manifest = { runId: 'dry', pattern: 'one-shot', config, repetitions: 1, dryRun: true };
+  const dry = renderReport({ manifest, plan, records: [] });
+  assert.equal(dry.complete, false);
+  assert.match(dry.markdown, /Dry run only/);
+  assert.match(dry.markdown, /Not captured in this historical plan/);
+  assert.match(dry.markdown, /current prompt content was not substituted/);
+  assert.doesNotMatch(dry.markdown, /Cache confound/);
+  const result = { variant: 'bad', trial: 1, repetition: 1, status: 'failed',
+    acceptance: [{ criterion: 'A|B\nC', status: 'needs-review', evidence: null }],
+    metrics: null, elapsedMs: 0, error: 'CLI cap rejected' };
+  const failed = renderReport({ manifest: { ...manifest, dryRun: false }, plan,
+    records: [{ result, artifacts: [], output: null, resultLink: 'result.json',
+      diagnostic: 'Use at least 30 AI credits. ``` fenced text' }], controllerError: 'Setup failed' });
+  assert.equal(failed.complete, false);
+  assert.match(failed.markdown, /Execution failed/);
+  assert.match(failed.markdown, /Use at least 30 AI credits/);
+  assert.match(failed.markdown, /A\\\|B C/);
+  assert.match(failed.markdown, /````text/);
+  assert.match(failed.markdown, /No evidence recorded|no evidence recorded/);
+  assert.equal(outcome({ ...result, status: 'completed' }), 'Awaiting review');
+});
+
+test('saved report regeneration preserves original evidence and recovers only hash-matching hypotheses', async () => {
+  const runId = `report-test-${randomUUID()}`;
+  const path = join(directory, 'results', runId);
+  const attemptPath = join(path, 'trial-1', 'repetition-1', 'good');
+  const plan = await buildPlan(root, 'one-shot', config);
+  delete plan.variants.good.expectations;
+  delete plan.variants.bad.expectations;
+  plan.variants.bad.sourceHash = 'different historical prompt';
+  const result = {
+    variant: 'good', pattern: 'one-shot', trial: 1, repetition: 1, status: 'completed',
+    acceptance: [{ criterion: 'criterion', status: 'needs-review', evidence: null }],
+    metrics: null, elapsedMs: 100,
+  };
+  const original = JSON.stringify(result);
+  try {
+    await mkdir(attemptPath, { recursive: true });
+    await writeFile(join(path, 'manifest.json'), JSON.stringify({
+      runId, pattern: 'one-shot', config, repetitions: 1, dryRun: false, plannedAiCredits: 60,
+    }));
+    await writeFile(join(path, 'resolved-plan.json'), JSON.stringify(plan));
+    await writeFile(join(attemptPath, 'result.json'), original);
+    await writeFile(join(attemptPath, 'output.md'), 'saved output');
+    await writeFile(join(attemptPath, 'session-1-turn-1-input.md'), 'saved input');
+    const command = () => spawnSync(process.execPath, [join(directory, 'harness.mjs'), 'report', '--run', runId],
+      { encoding: 'utf8' });
+    const generated = command();
+    assert.equal(generated.status, 0, generated.stderr);
+    const report = await readFile(join(path, 'report.md'), 'utf8');
+    assert.match(report, /exact recorded SHA-256 match/);
+    assert.match(report, /Not captured in this historical plan/);
+    assert.match(report, /saved output/);
+    assert.match(report, /session-1-turn-1-input.md/);
+    assert.equal(await readFile(join(attemptPath, 'result.json'), 'utf8'), original);
+    assert.equal(JSON.parse(await readFile(join(path, 'comparison.json'), 'utf8')).complete, false);
+    await writeFile(join(attemptPath, 'review.json'), JSON.stringify({
+      sourceHash: hash(JSON.stringify(result)), reviewer: 'Tester', evidence: 'Reviewed saved output',
+      acceptance: [{ criterion: 'criterion', status: 'pass', evidence: 'verified' }],
+    }));
+    assert.equal(command().status, 0);
+    const reviewed = await readFile(join(path, 'report.md'), 'utf8');
+    assert.match(reviewed, /Reviewed by: Tester/);
+    assert.match(reviewed, /1 \/ 1/);
+    assert.equal(await readFile(join(attemptPath, 'result.json'), 'utf8'), original);
+  } finally { await rm(path, { recursive: true, maxRetries: 5, retryDelay: 100 }); }
+});
+
 test('Docker monitor reads live resource/worker state and timeout kills the CLI process group', {
   skip: process.env.HARNESS_DOCKER_TESTS !== '1',
 }, async () => {
@@ -247,6 +367,6 @@ test('Docker monitor reads live resource/worker state and timeout kills the CLI 
     assert.match(output, /timeout passed/);
   } finally {
     if (created) docker(['rm', '--force', name]);
-    await rm(path, { recursive: true });
+    await rm(path, { recursive: true, maxRetries: 5, retryDelay: 100 });
   }
 });

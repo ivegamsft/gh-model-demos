@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { cp, mkdir, readFile, rename, writeFile, access } from 'node:fs/promises';
-import { join } from 'node:path';
+import { cp, mkdir, readFile, writeFile, access } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cliArgs, expandPrompt, finalOutput, grade, summarizeEvents, validateCatalog } from './harness-lib.mjs';
+import { atomicJson as json, cliArgs, expandPrompt, finalOutput, grade, hash, inside, summarizeEvents, validateCatalog,
+  validateInstructionSources } from './harness-lib.mjs';
 
 const evidence = '/evidence';
 const workspace = '/workspace';
@@ -13,12 +14,6 @@ const cliRoot = '/usr/local/lib/node_modules/@github/copilot';
 function redact(text) {
   return text.replace(/\b(?:gh[oopsur]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]+)\b/g, '[REDACTED]')
     .replace(/(authorization["':\s]+bearer\s+)[^\s"\\,}]+/gi, '$1[REDACTED]');
-}
-
-async function json(path, value) {
-  const temporary = `${path}.${process.pid}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`);
-  await rename(temporary, path);
 }
 
 async function status(value) {
@@ -69,10 +64,11 @@ async function checked(file, args, options) {
 }
 
 async function prepareAuth() {
+  process.env.COPILOT_AUTO_UPDATE = 'false';
   await mkdir(evidence, { recursive: true });
   const home = join(process.env.HOME, '.copilot');
   await cp('/auth', home, { recursive: true, filter: path =>
-    !['session-state', 'logs', 'session-store.db', 'session-store.db-shm', 'session-store.db-wal']
+    !['session-state', 'logs', 'session-store.db', 'session-store.db-shm', 'session-store.db-wal', 'mcp-config.json']
       .some(name => path.endsWith(`/${name}`)) });
   process.env.COPILOT_HOME = home;
   delete process.env.GH_TOKEN;
@@ -99,6 +95,30 @@ async function persistedEvents(sessionId) {
   try { await access(path); }
   catch (error) { if (error.code === 'ENOENT') return []; throw error; }
   return (await readFile(path, 'utf8')).trim().split(/\r?\n/).filter(Boolean).map(line => JSON.parse(redact(line)));
+}
+
+export async function stageInstructions(root, context) {
+  for (const file of context.files) {
+    if (hash(file.content) !== file.sha256) throw new Error(`Instruction hash mismatch: ${file.source}`);
+    const destination = inside(root, file.destination);
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(destination, file.content, { flag: 'wx' });
+  }
+}
+
+export async function configureSubagents(home, phase) {
+  if (!phase.subagentModel) return null;
+  const path = join(home, 'settings.json');
+  let settings;
+  try { settings = JSON.parse(await readFile(path, 'utf8')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; settings = {}; }
+  const names = ['explore', 'task', 'general-purpose', 'research', 'code-review', 'rubber-duck'];
+  const agents = Object.fromEntries(names.map(name => [name, {
+    model: phase.subagentModel, effortLevel: 'inherit', contextTier: 'inherit',
+  }]));
+  settings.subagents = { ...settings.subagents, agents };
+  await json(path, settings);
+  return { mechanism: phase.subagentMechanism, agents };
 }
 
 async function main() {
@@ -130,14 +150,31 @@ async function main() {
     await status({ state: 'preflight', variant: plan.variant });
     validateCatalog(plan.phases, await catalog());
     await cp('/job/snapshot', workspace, { recursive: true });
+    if (plan.context) {
+      await stageInstructions(workspace, plan.context);
+      await json(join(evidence, 'instruction-context.json'), plan.context);
+    }
     await checked('git', ['init', '-q']);
     await checked('git', ['config', 'user.name', 'Harness']);
     await checked('git', ['config', 'user.email', 'harness@localhost']);
     await checked('git', ['add', '.']);
     await checked('git', ['commit', '-qm', 'Fixture baseline', '--allow-empty']);
+    if (plan.context) {
+      const discovered = await checked('copilot', ['instruction', 'list', '--json']);
+      await writeFile(join(evidence, 'instruction-sources.json'), discovered);
+      validateInstructionSources(plan.context, JSON.parse(discovered));
+    }
     const deadline = Date.now() + plan.caps.timeout_minutes * 60000;
     let previousOutput;
     for (const [phaseIndex, phase] of plan.phases.entries()) {
+      const workerSettings = await configureSubagents(process.env.COPILOT_HOME, phase);
+      if (workerSettings) {
+        const configured = JSON.parse(await checked('copilot', ['config', 'subagents.agents']));
+        for (const [name, setting] of Object.entries(workerSettings.agents)) {
+          if (configured[name]?.model !== setting.model) throw new Error(`Worker model setting not applied: ${name}`);
+        }
+        await json(join(evidence, `session-${phaseIndex + 1}-subagents.json`), workerSettings);
+      }
       const sessionId = randomUUID();
       let previousStoredCount = 0;
       for (const [turnIndex, template] of phase.turns.entries()) {
@@ -215,6 +252,8 @@ async function main() {
       status: state, error: failure, capHit, elapsedMs: Date.now() - began,
       acceptance: grade(plan.pattern, lastOutput, plan.acceptance),
       metrics: summarizeEvents(events), turns: turns.map(({ output, acceptance, ...turn }) => turn),
+      context: plan.context ? { variant: plan.context.variant, bytes: plan.context.bytes,
+        hashes: plan.context.files.map(file => ({ destination: file.destination, sha256: file.sha256 })) } : null,
     };
     await json(join(evidence, 'result.json'), result);
     await status({ state, variant: plan.variant, error: failure });

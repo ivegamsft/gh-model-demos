@@ -27,7 +27,7 @@ RUN case "${TARGETARCH}" in amd64) cpu=x64 ;; arm64) cpu=arm64 ;; *) exit 1 ;; e
 COPY package.json ./
 RUN cp /tmp/packages/package-lock.json ./package-lock.json \
     && npm ci --offline --omit=dev && npm cache clean --force && rm -rf /tmp/packages
-COPY harness-lib.mjs worker.mjs dump-models.mjs ./
+COPY harness-lib.mjs worker.mjs dump-models.mjs mock-observability.mjs ./
 
 ENV HOME=/home/node
 USER node

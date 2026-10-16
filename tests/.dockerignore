@@ -5,6 +5,7 @@
 !harness-lib.mjs
 !worker.mjs
 !dump-models.mjs
+!mock-observability.mjs
 !.build-packages/
 !.build-packages/**
 .build-packages/*/*.tgz

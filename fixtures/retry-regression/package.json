@@ -1,0 +1,6 @@
+{
+  "name": "fixture-retry-regression",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test" }
+}

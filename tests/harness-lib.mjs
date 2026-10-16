@@ -1,6 +1,8 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import files from 'node:fs/promises';
 import { readFile, readdir, lstat } from 'node:fs/promises';
 import { resolve, relative, isAbsolute, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parse } from 'yaml';
 
 export function inside(root, path) {
@@ -50,6 +52,42 @@ export function hash(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+export function previewLinks(markdown, reportPath) {
+  let fence = null;
+  return markdown.split('\n').map(line => {
+    const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    if (marker) {
+      if (!fence) fence = marker[1];
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+      return line;
+    }
+    if (fence) return line;
+    return line.replace(/(\[[^\]\n]+\])\(([^)\n]+)\)/g, (match, label, target) => {
+      if (/^(?:<?[a-z][a-z0-9+.-]*:|#)/i.test(target)) return match;
+      const uri = pathToFileURL(resolve(reportPath, '..', decodeURIComponent(target))).href.replaceAll(')', '%29');
+      return `${label}(<${uri}>)`;
+    });
+  }).join('\n');
+}
+
+export async function atomicJson(path, value) {
+  const temporary = `${path}.${randomUUID()}.tmp`;
+  await files.writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`);
+  try {
+    for (let attempt = 0; ; attempt++) {
+      try { await files.rename(temporary, path); return; }
+      catch (error) {
+        if (!['EPERM', 'EBUSY', 'EACCES'].includes(error.code) || attempt >= 5) throw error;
+        console.error(`Retrying JSON replacement after ${error.code}: ${path} (attempt ${attempt + 1}/5).`);
+        await new Promise(resolve => setTimeout(resolve, 50 * 2 ** attempt));
+      }
+    }
+  } catch (error) {
+    await files.rm(temporary, { force: true });
+    throw error;
+  }
+}
+
 export async function fixtureFiles(root, fixture) {
   const path = inside(root, fixture);
   const stat = await lstat(path);
@@ -65,8 +103,8 @@ export function resolveConfig(prompt, config) {
   if (prompt.config?.surface !== 'copilot-cli') throw new Error('Only copilot-cli is supported.');
   return prompt.sessions.map((turns, index) => {
     const phase = { ...prompt.config, ...prompt.phases?.[index] };
-    if (phase.subagent_model_class || phase.subagent_mechanism) {
-      throw new Error('Subagent model/mechanism configuration needs a dedicated runner; not supported yet.');
+    if (phase.subagent_mechanism && phase.subagent_mechanism !== 'subagents-or-fleet') {
+      throw new Error(`Unsupported subagent mechanism: ${phase.subagent_mechanism}`);
     }
     const model = config.modelClasses[phase.model_class];
     if (!model) throw new Error(`No model mapping for ${phase.model_class}`);
@@ -77,7 +115,10 @@ export function resolveConfig(prompt, config) {
     if (tools !== null && (!Array.isArray(tools) || tools.some(tool => typeof tool !== 'string' || !tool))) {
       throw new Error(`Invalid tool allowlist: ${phase.tools}`);
     }
-    return { model, effort: phase.reasoning_effort, tools, turns, toolProfile: phase.tools };
+    const subagentModel = phase.subagent_model_class ? config.modelClasses[phase.subagent_model_class] : null;
+    if (phase.subagent_model_class && !subagentModel) throw new Error(`No worker model mapping for ${phase.subagent_model_class}`);
+    return { model, effort: phase.reasoning_effort, tools, turns, toolProfile: phase.tools,
+      ...(subagentModel ? { subagentModel, subagentMechanism: phase.subagent_mechanism ? 'fleet' : 'native-subagents' } : {}) };
   });
 }
 
@@ -87,6 +128,19 @@ export function validateCatalog(phases, models) {
     if (!model || model.policy?.state === 'disabled') throw new Error(`Unavailable model: ${phase.model}`);
     if (phase.effort && !model.supportedReasoningEfforts?.includes(phase.effort)) {
       throw new Error(`Model ${phase.model} does not report support for effort ${phase.effort}`);
+    }
+    if (phase.subagentModel) {
+      const worker = models.find(model => model.id === phase.subagentModel);
+      if (!worker || worker.policy?.state === 'disabled') throw new Error(`Unavailable worker model: ${phase.subagentModel}`);
+    }
+  }
+}
+
+export function validateInstructionSources(context, sources) {
+  if (!Array.isArray(sources)) throw new Error('Instruction discovery did not return an array.');
+  for (const file of context.files) {
+    if (!sources.some(source => source.sourcePath === file.destination && source.defaultDisabled === false)) {
+      throw new Error(`Staged instruction not enabled in CLI discovery: ${file.destination}`);
     }
   }
 }
@@ -124,6 +178,11 @@ export async function buildPlan(root, pattern, config) {
       pattern, variant, acceptance: prompt.acceptance, caps: prompt.caps,
       repetitions: prompt.repetitions ?? 1, phases, files, batches,
       fixtures, sourceHash: prompt.sourceHash, runSafety: prompt.run_safety ?? null,
+      expectations: {
+        processing: prompt.expected_processing ?? null,
+        result: prompt.expected_result ?? null,
+        source: 'captured prompt frontmatter',
+      },
     };
   }
   if (JSON.stringify(variants.good.acceptance) !== JSON.stringify(variants.bad.acceptance)) {
@@ -170,9 +229,25 @@ export function expandPrompt(text, { files, batch, previousOutput, now }) {
 export function cliArgs(phase, caps, sessionId) {
   const args = ['--model', phase.model, '--session-id', sessionId,
     '--max-ai-credits', String(caps.max_ai_credits), '--no-ask-user',
-    '--output-format', 'json', '--stream', 'on', '--disable-builtin-mcps', '--allow-all-tools'];
+    '--output-format', 'json', '--stream', 'on', '--disable-builtin-mcps', '--allow-all-tools', '--no-auto-update'];
+  if (phase.customInstructions === false) args.push('--no-custom-instructions');
+  if (phase.subagentMechanism === 'fleet') args.push('--fleet');
+  if (phase.toolProfile === 'mock-observability') {
+    args.push('--additional-mcp-config', JSON.stringify({ mcpServers: {
+      observability: { type: 'stdio', command: 'node', args: ['/opt/harness/mock-observability.mjs',
+        '/workspace/fixtures/mock-observability', '/evidence/mock-observability.jsonl'], tools: ['*'] },
+    } }));
+  }
+  if (phase.toolProfile === 'read-only+shell-test') {
+    args.splice(args.indexOf('--allow-all-tools'), 1);
+    args.push('--allow-tool', 'read', '--allow-tool', 'shell(node --test:*)', '--allow-tool', 'shell(npm test:*)',
+      '--allow-tool', 'shell(cd:*)',
+      '--deny-tool', 'write', '--deny-tool', 'shell(git:*)');
+  }
   if (phase.effort) args.push('--reasoning-effort', phase.effort);
-  if (phase.tools !== null) args.push('--available-tools', ...phase.tools);
+  if (phase.tools !== null) args.push('--available-tools', ...new Set([
+    ...phase.tools, ...(phase.subagentModel ? ['task', 'read_agent', 'write_agent', 'list_agents'] : []),
+  ]));
   return args;
 }
 

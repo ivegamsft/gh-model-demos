@@ -118,9 +118,14 @@ copilot -p $body `
 - Wall-clock time and whether a cap was hit.
 - Files changed or output size.
 
-## Fixtures still needed
+## Checked-in fixtures
 
-Create these under `fixtures/` before running the corresponding patterns:
+All declared fixture paths are checked in under `fixtures/`. See
+[`fixtures/README.md`](../fixtures/README.md) for offline generation, token
+measurement, baseline failures, and fixture-specific test commands. Copy a fresh
+baseline for every model trial; do not repair the checked-in regressions.
+Run `node --test tests/fixtures.test.mjs` from the repository root to audit them.
+Keep that independent oracle file outside model workspaces.
 
 | Fixture | Used by | Contents |
 |---|---|---|
@@ -137,6 +142,13 @@ Create these under `fixtures/` before running the corresponding patterns:
 | `fixtures/ci-failure/` | headless-agentic | Repository and CI log with one failing test |
 | `fixtures/review-diff/` | code-review | Diff with one seeded off-by-one bug and one seeded injection |
 | `fixtures/deprecated-api/` | orchestration | Three modules that use a deprecated API, plus one shared utility |
+
+`checkout-app`, `retry-regression`, and `ci-failure` intentionally start with one
+failing regression apiece; the audit verifies those exact failures. Other app
+suites pass before the requested enhancement. Generated batch, telemetry, and
+long-context files are reproducible with `node fixtures/generate.mjs`; verify
+drift with `node fixtures/generate.mjs --check`. Runtime fixture tests use only
+Node built-ins and make no network or paid-model requests.
 
 ## Candidate patterns not yet included
 

@@ -53,6 +53,9 @@ node .\tests\harness.mjs monitor --run <run-id> --watch
 # Regenerate a report from saved evidence, without making model calls.
 node .\tests\harness.mjs report --run <run-id>
 
+# Refresh all saved reports and create results/index.md.
+node .\tests\harness.mjs report --all
+
 # Five paired trials need a higher aggregate budget than the default.
 node .\tests\harness.mjs run --pattern structured-extraction --trials 5 --budget 300
 
@@ -63,8 +66,140 @@ npm test --prefix .\tests
 Monitoring shows controller/worker state and live Docker CPU/memory statistics.
 The controller prints session/turn progress while running. Reports and raw evidence
 are saved under the ignored `results/<run-id>/` directory.
+Reports are organized around **what we tested, what we expected, what happened,
+and insights/next steps**. They show the prompt contrast, hypothesis provenance,
+criterion-by-criterion decisions, response previews, and direct evidence links.
+Execution completion, acceptance failure, and outstanding review are separate
+outcomes. Costs are displayed in AIU (nano-AIU divided by one billion), not dollars
+or AI credits; raw values remain in JSON. Cache imbalances, incomplete telemetry,
+and small samples are called out before interpreting economics.
+
+New plans capture hypotheses from prompt frontmatter. For historical plans that
+omitted them, reporting uses the current prompt only if its complete source hash
+matches the recorded hash, and labels that recovery. Otherwise expectations are
+explicitly unavailable. Regenerating reports never reruns inference or rewrites
+original attempt results. The run index keeps dry runs and execution failures
+separate from measured experiments; it does not pool unrelated smoke tests.
 Prompt bodies are sent on stdin, avoiding command-line argument length limits for
 large fixture expansions and keeping their text out of process argument listings.
+
+### Model, prompt, instruction, and workload matrix
+
+[matrix.mjs](matrix.mjs) plans one experiment containing multiple paired runs:
+
+- **Models:** the enabled/non-disabled intersection of both authenticated container
+  catalogs. Includes Auto and any Hydra/ensemble entry actually present; never
+  synthesizes a custom ensemble. Unknown policy state is not proof inference works.
+- **Prompt factor:** the existing good/bad pair, with its unchanged shared rubric.
+- **Instruction factor:** independently cross `none`, `good`, and `bad` repository
+  instruction bundles from [agent-assets/instructions](../agent-assets/instructions/).
+  Both prompt variants get the *same* instruction context within a cell. Thus
+  good prompts with bad instructions and bad prompts with good instructions are
+  measured, not only "everything good" versus "everything bad."
+- **Workloads:** discover every prompt-pattern directory and retain its workload
+  label. Missing fixtures, unbound tool profiles, or unsupported subagent runners
+  become explicit blocked coverage, not quality failures. Default execution refuses
+  blocked coverage unless `--allow-partial` is deliberately supplied.
+- **Trials/order:** five paired trial rounds by default. Cell order is shuffled
+  reproducibly within each round using a saved seed. Pair order alternates by
+  trial/cell parity; an odd number of trials cannot be perfectly order-balanced.
+
+```powershell
+# No inference: query both catalogs, freeze context contents/hashes and prompts,
+# calculate coverage, attempts, sessions, and summed soft-cap budget.
+node .\tests\matrix.mjs plan --trials 5
+
+# Smaller bounded smoke plan before a large experiment.
+node .\tests\matrix.mjs plan --models gpt-5-mini,auto --patterns structured-extraction --trials 1
+
+# Use the printed matrix ID. This smoke plan reserves 360 AI credits in soft caps.
+node .\tests\matrix.mjs run --matrix <smoke-matrix-id> --budget 360
+
+# In another terminal: checkpoint totals, current paired run ID, and report.
+node .\tests\matrix.mjs monitor --matrix <matrix-id>
+node .\tests\harness.mjs monitor --run <current-paired-run-id> --watch
+
+# Regenerate the aggregate without inference.
+node .\tests\matrix.mjs report --matrix <matrix-id>
+```
+
+Planning saves `results/matrices/<matrix-id>/plan.json`, `state.json`, `report.md`,
+`summary.json`, and `contrasts.json`. Each trial/cell uses a normal evidence-rich
+paired run under `results/<paired-run-id>/`. Factor rows show acceptance/rejection/
+review/execution-failure counts, cost per accepted completion (including known
+failed spend), total AIU, tokens/cache, latency, staged instruction bytes, and actual
+models. Matched prompt and instruction deltas hold other factors fixed. Deltas are
+withheld until all planned observations and rubric decisions are available and no
+execution failure remains; zero accepted completions never yields a fake zero cost.
+After human review, regenerate paired reports (`harness.mjs report --all`) before
+regenerating the matrix so reviewed decisions enter the aggregate.
+Matched model deltas use `gpt-5-mini` as baseline when selected, otherwise the first
+selected model; Auto/provider-default comparisons are explicitly not effort-matched.
+Reports identify each selected model's family without extrapolating a representative's
+results to its entire family. Saved reports use explicit, percent-encoded `file:`
+URIs for VS Code Markdown preview (including prompt pairs, instruction assets,
+methodology, and evidence). These links refer to this local checkout; regenerate
+reports after moving it. Missing historical fixture paths remain diagnostic code,
+not links to nonexistent evidence.
+
+Repository instructions are installed beneath `.github/` in the disposable
+workspace before its Git baseline. Their exact contents/hashes and
+`copilot instruction list --json` discovery evidence are saved per attempt.
+`none` supplies no files and disables custom instructions on inference commands.
+Discovery and staged byte counts **do not prove every scoped instruction was
+attached**, and bytes are not tokenizer counts. Inline tasks may only exercise
+always-on instructions. Skills, custom agents, prompt-file activation, and
+progressive-disclosure assets are **not** tested by this factor.
+
+Named models retain the prompt's reasoning effort when supported. Auto and models
+without effort metadata omit the effort flag and record "provider default; not
+effort-matched"; actual routed models come from usage evidence. Unsupported known
+efforts block the cell rather than silently substituting a different setting.
+CLI updates are disabled; the image ID, driver hashes, catalogs, configuration,
+prompts, context, and randomized schedule are frozen. Replan after changing the
+driver or image. Provider caching and Auto routing remain uncontrolled confounders.
+Five trials support exploration, not a statistically established overall winner.
+Preflight/run also retain a content-specific Docker tag under
+`gh-model-experiment-pins` so rebuilding the mutable development tag cannot make
+the recorded image unreachable. These pins consume local disk until explicitly
+removed after all dependent experiments finish. Checkpoint JSON replacement
+retries transient `EPERM`/`EBUSY`/`EACCES` locks with bounded backoff and logs every
+retry; permanent errors still stop the controller and preserve original evidence.
+An interrupted experiment can deliberately adopt a corrected host controller with
+`run --matrix <id> --budget <original-budget> --accept-controller-update`. This
+records old/new hashes and remaining jobs in `controller-updates.json`, retains the
+original immutable container image and inputs, and labels the mixed controller
+provenance in the report. It never replaces the frozen plan hashes or reruns
+completed/failed jobs. Without this flag a driver mismatch still blocks execution.
+
+Use `node .\tests\matrix.mjs refresh --matrix <old-matrix-id>` after adding missing
+fixtures or runner bindings. This creates a new no-inference plan against current
+configuration/catalogs/image and links it from the old report. Old frozen blockers,
+hashes, budgets, and results remain unchanged; the old report displays current
+prerequisites alongside its historical assessment rather than silently rewriting
+experimental provenance. A refresh does not launch either plan.
+Pattern readiness and per-model effort compatibility are distinct. For example,
+`kimi-k3` advertises low/high/max but not medium: cells requesting medium remain
+explicitly excluded even after every fixture and runner prerequisite is supplied.
+Their exact reason/count appears in the report; no effort is silently substituted.
+
+The numeric `--budget` must cover the **entire** frozen matrix's summed session
+caps, not just the current job. These are soft admission limits, not a predicted
+bill or guaranteed hard ceiling; AI credits, AIU, and dollars are not interchangeable.
+For example, the historical 3-pattern subset with 25 catalog models,
+3 instruction contexts, and 5 trials schedules 2,250 attempts, reserving 75,000
+credits in soft caps. That plan predated fixtures and runner bindings for the
+other 13 patterns. Always refresh the plan rather than treating historical
+blocked coverage as the current readiness assessment.
+
+Rerunning `run` with the same ID resumes only pending jobs; completed and failed
+jobs are never automatically retried or silently replaced. An exclusive runner
+lock prevents simultaneous controllers. SIGINT/SIGTERM uses the paired controller's
+scoped cleanup. After a hard crash, an in-flight/uncertain checkpoint or stale
+`runner.lock` deliberately prevents automatic resume: inspect the specific process,
+container names in the paired manifest, status, and evidence before resolving it.
+Do not mark an uncertain job pending merely to retry it; that could duplicate spend.
+Preserve the evidence and create a separately budgeted follow-up plan instead.
 
 ### Configuration and current coverage
 
@@ -88,17 +223,34 @@ testing model-tier workflows. Every command accepts `--config <path>`.
   inputs, and fixture expansion are supported. Each batch-fixture JSONL line must
   be one JSON array of tickets, one line per repetition; ticket fields `label`,
   `gold_label`, and `goldLabel` are withheld from model input.
-- Other patterns fail preflight until their declared fixtures exist. Fixture
+- Declared workload fixtures are supplied under `fixtures/` and have independent
+  shape/baseline checks in `fixtures.test.mjs`. A new matrix plans all 16 patterns.
+  Fixture
   symlinks and paths escaping the repository are rejected. Fixture source hashes
   must match across variants.
 - `none` exposes an empty tool list; `read-only` exposes `view`, `glob`, and `grep`;
-  `web` exposes `web_search` and `web_fetch`; `default` permits ordinary CLI tools
+  `web` exposes `web_fetch`; `default` permits ordinary CLI tools
   inside the disposable container. Built-in MCP servers are disabled.
-- Specialized profiles (`mock-observability`, `read-only+shell-test`) require an
-  explicit tool binding. Their test fixtures/runners are not supplied here.
-- Explicit subagent model/mechanism experiments are rejected rather than silently
-  ignoring configuration. The separate agent-assets library is not automatically
-  installed or activated. These surfaces need dedicated runner support.
+- `mock-observability` launches a local, read-only stdio MCP server exposing only
+  synthetic `metrics`, `deployments`, and `logs` datasets. Query parameters/results
+  are saved in `mock-observability.jsonl`. Logs are bounded by `limit` (1..1000),
+  with a default 100; the rubric's <=20 requirement is graded from query evidence,
+  not forcibly imposed in the bad variant.
+- `read-only+shell-test` exposes file readers and `bash`, permits `node --test` and
+  `npm test`, and denies file-write tools and Git shell commands. This is a tool
+  permission policy for trusted fixtures, not a filesystem sandbox: a test script
+  itself can have side effects. Do not use untrusted scripts.
+- Worker-model patterns install per-built-in-agent model settings in the ephemeral
+  CLI home and read them back before inference. Research uses native subagents;
+  orchestration enables `--fleet`. Evidence records worker settings and observed
+  subagent/model events. In model matrices the same selected model is used for
+  lead and workers; a direct paired run uses configured light/strong mappings.
+  This intentionally measures a homogeneous model treatment, not genuine tier
+  routing. The separate agent-assets skill/agent library remains inactive.
+- `HARNESS_AUTH_TESTS=1` enables an additional Docker/SDK handshake test for the
+  mock MCP server and worker settings using the good device-auth volume. It creates
+  a session but sends no prompt and performs no inference. Ordinary fixture and
+  mock-protocol tests require neither Docker nor authentication.
 - Fixture tests and semantic rubrics beyond the two inline graders need external
   review; completed model execution is not automatically an accepted completion.
 
@@ -181,8 +333,7 @@ writable. Copy only the selected prompts, assets, and fixtures.
   enable all tools. A container is not a complete security boundary.
 - Treat `max_ai_credits` as a soft session limit. Also enforce wall-clock limits
   and aggregate planned session caps across phases/repetitions/trials. There are
-  no automatic retries. Explicit worker-model orchestration remains unsupported;
-  any incidental subagent usage is subject to CLI session controls, not a separate
+  no automatic retries. Worker-model orchestration uses CLI session controls, not a separate
   hard billing guarantee.
 - Known GitHub token prefixes and bearer headers are redacted from runtime logs.
   Do not put secrets in fixtures/prompts; inspect evidence before sharing it.

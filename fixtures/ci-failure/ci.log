@@ -1,0 +1,19 @@
+CI offline fixture / Node 22 / command: npm test
+TAP version 13
+# Subtest: normalizes mixed-case release names
+not ok 1 - normalizes mixed-case release names
+  location: test/release.test.mjs:5:1
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    + 'Autumn-Launch'
+    - 'autumn-launch'
+  stack: TestContext.<anonymous> (test/release.test.mjs:6:10)
+# Subtest: collapses whitespace in release names
+ok 2 - collapses whitespace in release names
+# Subtest: builds the release path
+ok 3 - builds the release path
+# tests 3
+# pass 2
+# fail 1
+Process exited with code 1

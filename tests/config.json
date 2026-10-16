@@ -12,7 +12,9 @@
   "toolProfiles": {
     "none": [],
     "read-only": ["view", "glob", "grep"],
-    "web": ["web_search", "web_fetch"],
+    "web": ["web_fetch"],
+    "read-only+shell-test": ["view", "glob", "grep", "bash", "read_bash", "stop_bash"],
+    "mock-observability": ["mcp:*"],
     "default": null
   },
   "maxPlannedAiCredits": 60,
