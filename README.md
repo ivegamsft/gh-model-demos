@@ -26,6 +26,7 @@ The metric throughout is **cost per accepted completion**, not cost per call.
 ## Key concepts
 
 - **Workload shape outweighs per-call price.** In Anthropic's production data, agents used about 4 times the tokens of chat interactions, and multi-agent systems about 15 times. See [AI workloads and cost](docs/ai-workloads-cost.md).
+- **Company AI spending needs both guardrails and value measures.** Pilot and expand based on evidence; set budgets, engineer workflows, and measure business outcomes. See the [company-level AI spend strategy](docs/model-usage-cost-optimization.md#company-level-ai-spend-strategy).
 - **Caching rewards a stable prefix.** Put stable context first and volatile context last. See [Prompt caching](docs/prompt-caching-guidance.md).
 - **"Routing" means five different things.** Only post-answer escalation sees the answer before deciding. See [Model selection and execution shapes](docs/model-selection-and-execution-shapes.md).
 - **Effort is not thinking, and neither is verbosity.** See [Harnesses and effort](docs/harnesses-and-effort.md).

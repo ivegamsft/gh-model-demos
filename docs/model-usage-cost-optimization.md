@@ -2,7 +2,7 @@
 
 Slide review, ranked adoption sequence, fact-check, and evaluation plan.
 
-Prepared October 15, 2026.
+Prepared October 16, 2026.
 
 ## Executive assessment
 
@@ -12,7 +12,20 @@ The objective is to minimize token-priced inference spend per successfully compl
 
 This document focuses on inference spend. Human review, delivery time, and infrastructure costs remain important guardrails, but are not the primary optimization target. Local inference must distinguish lower hosted charges from lower total cost.
 
-The ordering below is a recommended adoption sequence, not measured savings for this repository. Product and pricing claims reflect the sources consulted on October 15, 2026 and may change.
+The ordering below is a recommended adoption sequence, not measured savings for this repository. Product and pricing claims reflect the cited sources and may change.
+
+## Company-level AI spend strategy
+
+The slide's eight bullets are not competing choices on one savings scale. They mix a use-case decision, rollout size, usage controls, engineering practice, and business strategy. A stronger company policy combines them:
+
+1. **Choose work by value, not by novelty.** Do not use AI where a deterministic tool or existing process meets the need better. Start with a business problem and a measurable outcome; AI is a means, not the objective. [10]
+2. **Pilot, then expand on evidence.** Giving AI to only a few people can be a useful pilot, but a permanently small cohort is not automatically cheaper or better. Giving it to everyone at once is also not a default. GitHub says many successful Copilot rollouts offer self-service licenses, alongside license utilization and enablement. Choose the rollout based on licensing economics, readiness, risk, and measured value. [8][11]
+3. **Use budgets as guardrails, not as an ROI strategy.** GitHub Copilot provides user-level AI-credit budgets that are hard stops across included and metered credit use. Cost-center, organization, and enterprise spending limits apply to metered charges after the shared pool is exhausted; they only stop usage if “Stop usage when budget limit is reached” is enabled. They do not cap license fees, and Copilot does not automatically fall back to a cheaper model when a user is blocked. These controls are Copilot-specific; verify the billing semantics of other providers. [9]
+4. **Manage measured workflow spend.** Track usage and charges by user, model, and cost center where available. For engineering comparisons, count all model calls, retries, tools, and failed runs; token count alone is not the invoice or the value delivered.
+5. **Set ROI targets before rollout.** Define a baseline, accepted-quality bar, and business outcome such as cycle time, resolution rate, or rework. Compare attributable benefits and total costs over a stated period; adoption or activity is not itself ROI. [10]
+6. **Treat AI development tools as engineered systems.** Apply security, access control, evaluation, observability, bounded execution, enablement, and regular review. That discipline is how an organization can pursue competitive advantage without treating spend as unconstrained.
+
+**Short version:** adopt where AI beats the alternative, roll out in evidence-backed stages, set explicit spend controls, engineer and measure the workflows, then expand where the net value holds. The slide should present this as a portfolio operating model—not a choice between “only a few” and “everyone,” or between engineering discipline and competitive advantage.
 
 ## 1. Recommended adoption order
 
@@ -161,11 +174,11 @@ Use these questions to pressure-test the argument before presenting. They are di
 
 Use the title **"Lower token cost per completed workflow."** Replace the long bullet list with an adoption sequence or a two-axis chart showing implementation effort versus measured cost reduction. Until measurements exist, label the ordering as recommended adoption, not an ascending savings curve.
 
-Group the story into four moves: avoid unnecessary generation; right-size inference; load and reuse context efficiently; orchestrate only when it earns its cost. Keep frontier models, local deployment, and continuous automation as conditional choices rather than moral judgments.
+For the company-spend slide, group the story into four moves: **select valuable use cases; pilot and expand; control and measure spend; engineer for outcomes.** Do not frame “few people” versus “everyone” or “engineering” versus “competitive advantage” as mutually exclusive choices. Keep frontier models, local deployment, and continuous automation as conditional choices rather than moral judgments.
 
 ## Sources
 
-Sources consulted October 15, 2026.
+Sources for this guide consulted October 15-16, 2026.
 
 1. [OpenAI: Latency optimization](https://developers.openai.com/api/docs/guides/latency-optimization)
 2. [GitHub: About Copilot auto model selection](https://docs.github.com/en/copilot/concepts/models/auto-model-selection)
@@ -174,3 +187,7 @@ Sources consulted October 15, 2026.
 5. [Agent Skills specification](https://agentskills.io/specification)
 6. [OpenAI: Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching)
 7. [GitHub: Models and pricing for GitHub Copilot](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing)
+8. [GitHub: Managing your company's spending on GitHub Copilot](https://docs.github.com/en/copilot/how-tos/manage-and-track-spending/manage-company-spending)
+9. [GitHub: Budgets for usage-based billing](https://docs.github.com/en/copilot/concepts/billing-and-usage/organizations-and-enterprises/budgets)
+10. [Microsoft Cloud Adoption Framework: Plan for AI adoption](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai/plan)
+11. [GitHub: Setting up a self-serve process for Copilot licenses](https://docs.github.com/en/copilot/tutorials/roll-out-at-scale/assign-licenses/set-up-self-serve-licenses)

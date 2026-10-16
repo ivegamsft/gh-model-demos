@@ -5,6 +5,7 @@ These are fact-checked guides on lowering **cost per accepted completion**. Prod
 ## Suggested reading order
 
 1. [Lower token cost per completed workflow](model-usage-cost-optimization.md): the levers, ranked from easiest to most complex.
+   - Includes the [company-level AI spend strategy](model-usage-cost-optimization.md#company-level-ai-spend-strategy): use-case selection, rollout, budgets, engineering controls, and ROI.
 2. [AI workloads and cost](ai-workloads-cost.md): why workload shape matters more than the price of a single call.
 3. [Prompt caching](prompt-caching-guidance.md): how to make repeated context cheap.
 4. [Harnesses, effort, and prompt patterns](harnesses-and-effort.md): VS Code, the CLI, cloud agents, and effort/thinking settings.
@@ -15,6 +16,7 @@ These are fact-checked guides on lowering **cost per accepted completion**. Prod
 
 ### [Lower token cost per completed workflow](model-usage-cost-optimization.md)
 - [Executive assessment](model-usage-cost-optimization.md#executive-assessment)
+- [Company-level AI spend strategy](model-usage-cost-optimization.md#company-level-ai-spend-strategy)
 - [Recommended adoption order](model-usage-cost-optimization.md#1-recommended-adoption-order)
 - [Fact-check and debate](model-usage-cost-optimization.md#2-fact-check-and-debate)
 - [Measurement plan](model-usage-cost-optimization.md#3-measurement-plan-for-the-demo-repository)
@@ -64,6 +66,7 @@ These are fact-checked guides on lowering **cost per accepted completion**. Prod
 | Concept | Where it is explained | Diagram |
 |---|---|---|
 | Cost per accepted completion | [Workloads: shared cost model](ai-workloads-cost.md#1-shared-cost-model) | — |
+| Company AI adoption, spend guardrails, and ROI | [Company-level AI spend strategy](model-usage-cost-optimization.md#company-level-ai-spend-strategy) | — |
 | Cost levers ranked by effort vs savings | [Adoption order](model-usage-cost-optimization.md#1-recommended-adoption-order) | [Quadrant](diagrams/cost-levers-quadrant.svg) |
 | Prompt caching and the exact-prefix rule | [Caching: core principle](prompt-caching-guidance.md#core-principle) | [Layer stack](diagrams/prompt-cache-layers.svg) |
 | Quadratic multi-turn growth | [Workloads: multi-turn](ai-workloads-cost.md#4-multi-turn) | [Line chart](diagrams/multi-turn-cache-growth.svg) |
